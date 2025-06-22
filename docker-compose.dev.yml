@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Backend service for development
+  backend:
+    build:
+      context: ./backend
+      target: development
+    container_name: ${COMPOSE_PROJECT_NAME:-chat-app}-backend-dev
+    ports:
+      - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - JWT_SECRET=${JWT_SECRET}
+      - PORT=${BACKEND_PORT:-3001}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+    networks:
+      - chat-app-network
+    restart: unless-stopped
+    # Enable debugging
+    command: yarn start:debug
+
+  # Frontend service for development
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    container_name: ${COMPOSE_PROJECT_NAME:-chat-app}-frontend-dev
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - VITE_API_URL=${VITE_API_URL}
+      - VITE_SOCKET_URL=${VITE_SOCKET_URL}
+    networks:
+      - chat-app-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  chat-app-network:
+    driver: bridge
+
+volumes:
+  backend_node_modules:
+  frontend_node_modules:
