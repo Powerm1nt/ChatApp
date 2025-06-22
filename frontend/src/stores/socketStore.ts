@@ -18,16 +18,27 @@ export interface User {
   joinedAt: Date;
 }
 
+export interface Channel {
+  id: string;
+  name: string;
+  stats: {
+    userCount: number;
+    messageCount: number;
+  };
+}
+
 interface SocketState {
   socket: Socket | null;
   isConnected: boolean;
   messages: ChatMessage[];
   roomUsers: User[];
+  channels: Channel[];
   currentRoom: string | null;
   typingUsers: string[];
   joinRoom: (username: string, room: string) => void;
   sendMessage: (message: string) => Promise<void>;
   fetchMessages: (roomId: string) => Promise<void>;
+  fetchChannels: () => Promise<void>;
   startTyping: () => void;
   stopTyping: () => void;
   initializeSocket: () => void;
@@ -37,6 +48,7 @@ interface SocketState {
   addMessage: (message: ChatMessage) => void;
   setMessages: (messages: ChatMessage[]) => void;
   setRoomUsers: (users: User[]) => void;
+  setChannels: (channels: Channel[]) => void;
   setCurrentRoom: (room: string | null) => void;
   updateTypingUsers: (username: string, isTyping: boolean) => void;
 }
@@ -46,6 +58,7 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
   isConnected: false,
   messages: [],
   roomUsers: [],
+  channels: [],
   currentRoom: null,
   typingUsers: [],
 
@@ -54,6 +67,7 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
   addMessage: (message: ChatMessage) => set(state => ({ messages: [...state.messages, message] })),
   setMessages: (messages: ChatMessage[]) => set({ messages }),
   setRoomUsers: (users: User[]) => set({ roomUsers: users }),
+  setChannels: (channels: Channel[]) => set({ channels }),
   setCurrentRoom: (room: string | null) => set({ currentRoom: room }),
 
   updateTypingUsers: (username: string, isTyping: boolean) => {
@@ -158,6 +172,25 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
       }
     } catch (error) {
       console.error('Failed to fetch messages:', error);
+    }
+  },
+
+  fetchChannels: async () => {
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const { token } = useAuthStore.getState();
+
+      const response = await axios.get(`${API_BASE_URL}/api/chats`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data && response.data.rooms) {
+        set({ channels: response.data.rooms });
+      }
+    } catch (error) {
+      console.error('Failed to fetch channels:', error);
     }
   },
 

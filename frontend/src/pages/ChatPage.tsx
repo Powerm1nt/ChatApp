@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { useSocketStore, ChatMessage, User } from '../stores/socketStore';
-import { Send, Users, LogOut, MessageCircle, Wifi, WifiOff } from 'lucide-react';
+import { useSocketStore, ChatMessage, User, Channel } from '../stores/socketStore';
+import { Send, Users, LogOut, MessageCircle, Wifi, WifiOff, Hash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -80,18 +81,21 @@ function MessageChatBubble({
 }
 
 export default function ChatPage() {
+  const navigate = useNavigate();
   const { user, signOut } = useAuthStore();
   const { 
     isConnected, 
     messages,
     roomUsers, 
+    channels,
     currentRoom, 
     typingUsers,
     joinRoom, 
     sendMessage, 
     startTyping, 
     stopTyping,
-    initializeSocket
+    initializeSocket,
+    fetchChannels
   } = useSocketStore();
 
   const [messageInput, setMessageInput] = useState('');
@@ -119,6 +123,19 @@ export default function ChatPage() {
       setUsername(user.username || user.email || 'Anonymous');
     }
   }, [user, username]);
+
+  // Fetch channels when component mounts and user is authenticated
+  useEffect(() => {
+    if (user && hasJoinedRoom) {
+      fetchChannels();
+    }
+  }, [user, hasJoinedRoom, fetchChannels]);
+
+  const handleChannelSelect = (channelId: string) => {
+    if (username.trim()) {
+      joinRoom(username.trim(), channelId);
+    }
+  };
 
   const handleJoinRoom = () => {
     if (username.trim() && room.trim()) {
@@ -277,26 +294,36 @@ export default function ChatPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
+        {/* Channels Sidebar - Left */}
         <div className="w-64 bg-card border-r p-4">
-          <h3 className="text-sm font-medium mb-3">Online Users</h3>
+          <h3 className="text-sm font-medium mb-3 flex items-center">
+            <Hash className="h-4 w-4 mr-2" />
+            Channels
+          </h3>
           <Separator className="mb-3" />
-          <div className="space-y-3">
-            {roomUsers.map((roomUser: User) => (
-              <div key={roomUser.id} className="flex items-center space-x-3">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                    {roomUser.username.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium truncate">{roomUser.username}</span>
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-xs text-muted-foreground">Online</span>
-                  </div>
+          <div className="space-y-1">
+            {channels.map((channel: Channel) => (
+              <button
+                key={channel.id}
+                onClick={() => handleChannelSelect(channel.id)}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                  currentRoom === channel.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <Hash className="h-3 w-3 mr-1" />
+                    {channel.name}
+                  </span>
+                  {channel.stats.userCount > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {channel.stats.userCount}
+                    </Badge>
+                  )}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -359,6 +386,33 @@ export default function ChatPage() {
                 <span className="sr-only">Send</span>
               </Button>
             </form>
+          </div>
+        </div>
+
+        {/* Users Sidebar - Right */}
+        <div className="w-64 bg-card border-l p-4">
+          <h3 className="text-sm font-medium mb-3 flex items-center">
+            <Users className="h-4 w-4 mr-2" />
+            Online Users
+          </h3>
+          <Separator className="mb-3" />
+          <div className="space-y-3">
+            {roomUsers.map((roomUser: User) => (
+              <div key={roomUser.id} className="flex items-center space-x-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    {roomUser.username.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium truncate">{roomUser.username}</span>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-xs text-muted-foreground">Online</span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
