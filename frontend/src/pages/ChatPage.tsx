@@ -10,6 +10,75 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+interface MessageChatBubbleProps {
+  message: ChatMessage;
+  username: string;
+  showAvatar: boolean;
+  showDate: boolean;
+  isDest: boolean;
+  formatTime: (timestamp: Date) => string;
+}
+
+function MessageChatBubble({ 
+  message, 
+  username, 
+  showAvatar, 
+  showDate, 
+  isDest, 
+  formatTime 
+}: MessageChatBubbleProps) {
+  return (
+    <div className={`flex ${isDest ? 'justify-end' : 'justify-start'} mb-1`}>
+      <div className="flex items-end space-x-2 max-w-xs lg:max-w-md">
+        {/* Avatar - only show for non-dest messages when showAvatar is true */}
+        {!isDest && showAvatar && (
+          <Avatar className="h-8 w-8 mb-1">
+            <AvatarFallback className="bg-primary/10 text-primary text-xs">
+              {message.username.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        )}
+
+        {/* Spacer when avatar should be hidden but message is not from dest */}
+        {!isDest && !showAvatar && (
+          <div className="w-8" />
+        )}
+
+        <div className="flex flex-col">
+          {/* Username - only show for non-dest messages when showAvatar is true */}
+          {!isDest && showAvatar && message.username !== 'System' && (
+            <div className="text-xs font-medium mb-1 text-muted-foreground ml-1">
+              {message.username}
+            </div>
+          )}
+
+          {/* Message bubble */}
+          <div
+            className={`px-4 py-2 rounded-lg ${
+              isDest
+                ? 'bg-primary text-primary-foreground'
+                : message.username === 'System'
+                ? 'bg-muted text-muted-foreground italic'
+                : 'bg-card text-card-foreground shadow-sm border'
+            }`}
+          >
+            <div className="break-words">{message.message}</div>
+          </div>
+
+          {/* Timestamp - only show when showDate is true */}
+          {showDate && (
+            <div className={`text-xs mt-1 ${
+              isDest ? 'text-right text-muted-foreground' : 'text-left text-muted-foreground'
+            }`}>
+              {formatTime(message.timestamp)}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatPage() {
   const { user, signOut } = useAuthStore();
   const { 
@@ -235,33 +304,27 @@ export default function ChatPage() {
         {/* Chat Area */}
         <div className="flex-1 flex flex-col">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {messages.map((message: ChatMessage) => (
-              <div
-                key={message.id}
-                className={`flex ${message.username === username ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.username === username
-                      ? 'bg-primary text-primary-foreground'
-                      : message.username === 'System'
-                      ? 'bg-muted text-muted-foreground italic'
-                      : 'bg-card text-card-foreground shadow-sm border'
-                  }`}
-                >
-                  {message.username !== username && message.username !== 'System' && (
-                    <div className="text-xs font-medium mb-1 text-muted-foreground">
-                      {message.username}
-                    </div>
-                  )}
-                  <div className="break-words">{message.message}</div>
-                  <div className={`text-xs mt-1 ${
-                    message.username === username ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                  }`}>
-                    {formatTime(message.timestamp)}
-                  </div>
-                </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            {messages.map((message: ChatMessage, index: number) => (
+              <div key={message.id}>
+                {/* Add padding between message groups when username changes */}
+                {index > 0 && messages[index - 1].username !== message.username && (
+                  <div style={{ paddingBlock: '2em' }} />
+                )}
+
+                <MessageChatBubble
+                  message={message}
+                  username={username}
+                  showAvatar={
+                    index === 0 || messages[index - 1].username !== message.username
+                  }
+                  showDate={
+                    index === messages.length - 1 ||
+                    messages[index + 1].username !== message.username
+                  }
+                  isDest={message.username === username}
+                  formatTime={formatTime}
+                />
               </div>
             ))}
 
