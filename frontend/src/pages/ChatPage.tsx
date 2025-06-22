@@ -2,12 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { useSocketStore, ChatMessage, User } from '../stores/socketStore';
 import { Send, Users, LogOut, MessageCircle, Wifi, WifiOff } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ChatPage() {
   const { user, signOut } = useAuthStore();
   const { 
     isConnected, 
-    messages, 
+    messages,
     roomUsers, 
     currentRoom, 
     typingUsers,
@@ -32,7 +39,7 @@ export default function ChatPage() {
     initializeSocket();
   }, [initializeSocket]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to the bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -51,12 +58,17 @@ export default function ChatPage() {
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (messageInput.trim()) {
-      sendMessage(messageInput);
-      setMessageInput('');
-      handleStopTyping();
+      try {
+        await sendMessage(messageInput);
+        setMessageInput('');
+        handleStopTyping();
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        // You could add error handling UI here
+      }
     }
   };
 
@@ -98,107 +110,123 @@ export default function ChatPage() {
 
   if (!hasJoinedRoom) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full space-y-6 p-8 bg-white rounded-xl shadow-lg">
-          <div className="text-center">
-            <MessageCircle className="mx-auto h-12 w-12 text-primary-500" />
-            <h2 className="mt-6 text-3xl font-bold text-gray-900">Join Chat Room</h2>
-            <p className="mt-2 text-sm text-gray-600">
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <div className="mx-auto h-12 w-12 bg-primary rounded-full flex items-center justify-center mb-4">
+              <MessageCircle className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <CardTitle className="text-3xl">Join Chat Room</CardTitle>
+            <CardDescription>
               Enter your details to start chatting
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="username" className="text-sm font-medium">
                 Username
               </label>
-              <input
+              <Input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Enter your username"
               />
             </div>
 
-            <div>
-              <label htmlFor="room" className="block text-sm font-medium text-gray-700">
+            <div className="space-y-2">
+              <label htmlFor="room" className="text-sm font-medium">
                 Room
               </label>
-              <select
-                id="room"
-                value={room}
-                onChange={(e) => setRoom(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="general">General</option>
-                <option value="random">Random</option>
-                <option value="tech">Tech Talk</option>
-                <option value="gaming">Gaming</option>
-              </select>
+              <Select value={room} onValueChange={setRoom}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a room" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="random">Random</SelectItem>
+                  <SelectItem value="tech">Tech Talk</SelectItem>
+                  <SelectItem value="gaming">Gaming</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <button
+            <Button
               onClick={handleJoinRoom}
               disabled={!username.trim() || !room.trim()}
-              className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full"
             >
               <Users className="h-4 w-4 mr-2" />
               Join Room
-            </button>
-          </div>
-        </div>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+      <div className="bg-card shadow-sm border-b px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              {isConnected ? (
-                <Wifi className="h-5 w-5 text-green-500" />
-              ) : (
-                <WifiOff className="h-5 w-5 text-red-500" />
-              )}
-              <h1 className="text-xl font-semibold text-gray-900">
+              <Badge variant={isConnected ? "default" : "destructive"} className="flex items-center space-x-1">
+                {isConnected ? (
+                  <Wifi className="h-3 w-3" />
+                ) : (
+                  <WifiOff className="h-3 w-3" />
+                )}
+                <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+              </Badge>
+              <h1 className="text-xl font-semibold">
                 #{currentRoom}
               </h1>
             </div>
-            <span className="text-sm text-gray-500">
+            <Badge variant="secondary">
               {roomUsers.length} user{roomUsers.length !== 1 ? 's' : ''} online
-            </span>
+            </Badge>
           </div>
 
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               Welcome, {username}
             </span>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={signOut}
-              className="flex items-center space-x-1 text-sm text-gray-500 hover:text-gray-700"
+              className="flex items-center space-x-1"
             >
               <LogOut className="h-4 w-4" />
               <span>Sign Out</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
-        <div className="w-64 bg-white border-r border-gray-200 p-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Online Users</h3>
-          <div className="space-y-2">
+        <div className="w-64 bg-card border-r p-4">
+          <h3 className="text-sm font-medium mb-3">Online Users</h3>
+          <Separator className="mb-3" />
+          <div className="space-y-3">
             {roomUsers.map((roomUser: User) => (
-              <div key={roomUser.id} className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span className="text-sm text-gray-700">{roomUser.username}</span>
+              <div key={roomUser.id} className="flex items-center space-x-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    {roomUser.username.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium truncate">{roomUser.username}</span>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-xs text-muted-foreground">Online</span>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -216,20 +244,20 @@ export default function ChatPage() {
                 <div
                   className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                     message.username === username
-                      ? 'bg-primary-500 text-white'
+                      ? 'bg-primary text-primary-foreground'
                       : message.username === 'System'
-                      ? 'bg-gray-100 text-gray-600 italic'
-                      : 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                      ? 'bg-muted text-muted-foreground italic'
+                      : 'bg-card text-card-foreground shadow-sm border'
                   }`}
                 >
                   {message.username !== username && message.username !== 'System' && (
-                    <div className="text-xs font-medium mb-1 text-gray-500">
+                    <div className="text-xs font-medium mb-1 text-muted-foreground">
                       {message.username}
                     </div>
                   )}
                   <div className="break-words">{message.message}</div>
                   <div className={`text-xs mt-1 ${
-                    message.username === username ? 'text-blue-100' : 'text-gray-400'
+                    message.username === username ? 'text-primary-foreground/70' : 'text-muted-foreground'
                   }`}>
                     {formatTime(message.timestamp)}
                   </div>
@@ -239,7 +267,7 @@ export default function ChatPage() {
 
             {/* Typing indicator */}
             {typingUsers.length > 0 && (
-              <div className="text-sm text-gray-500 italic">
+              <div className="text-sm text-muted-foreground italic">
                 {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
               </div>
             )}
@@ -248,25 +276,25 @@ export default function ChatPage() {
           </div>
 
           {/* Message Input */}
-          <div className="border-t border-gray-200 p-4 bg-white">
-            <form onSubmit={handleSendMessage} className="flex space-x-4">
-              <input
+          <div className="border-t p-4 bg-card">
+            <form onSubmit={handleSendMessage} className="flex space-x-2">
+              <Input
                 type="text"
                 value={messageInput}
                 onChange={handleInputChange}
                 onBlur={handleStopTyping}
                 placeholder="Type your message..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 disabled={!isConnected}
+                className="flex-1"
               />
-              <button
+              <Button
                 type="submit"
                 disabled={!messageInput.trim() || !isConnected}
-                className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                size="sm"
               >
                 <Send className="h-4 w-4" />
-                <span>Send</span>
-              </button>
+                <span className="sr-only">Send</span>
+              </Button>
             </form>
           </div>
         </div>

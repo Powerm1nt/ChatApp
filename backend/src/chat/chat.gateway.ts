@@ -78,45 +78,17 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.logger.log(`${username} joined room: ${room}`);
   }
 
-  @SubscribeMessage('send-message')
-  handleMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { message: string },
-  ) {
-    const user = this.chatService.getUser(client.id);
-    if (!user) {
-      client.emit('error', 'User not found. Please join a room first.');
-      return;
-    }
-
-    const chatMessage: ChatMessage = {
-      id: this.chatService.generateMessageId(),
-      username: user.username,
-      message: data.message,
-      timestamp: new Date(),
-      room: user.room,
-    };
-
-    // Save message
-    this.chatService.saveMessage(chatMessage);
-
-    // Broadcast to room
-    this.server.to(user.room).emit('new-message', chatMessage);
-
-    this.logger.log(`Message from ${user.username} in ${user.room}: ${data.message}`);
+  // Broadcasting methods for REST API to use
+  broadcastMessage(roomId: string, message: ChatMessage) {
+    this.server.to(roomId).emit('new-message', message);
+    this.logger.log(`Broadcasting message from ${message.username} in ${roomId}: ${message.message}`);
   }
 
-  @SubscribeMessage('get-messages')
-  handleGetMessages(@ConnectedSocket() client: Socket) {
-    const user = this.chatService.getUser(client.id);
-    if (!user) {
-      client.emit('error', 'User not found. Please join a room first.');
-      return;
-    }
-
-    const messages = this.chatService.getRoomMessages(user.room);
-    client.emit('room-messages', messages);
+  notifyNewMessage(roomId: string, notification: { messageId: string; username: string; timestamp: Date }) {
+    this.server.to(roomId).emit('message-notification', notification);
+    this.logger.log(`Notifying room ${roomId} of new message from ${notification.username}`);
   }
+
 
   @SubscribeMessage('typing')
   handleTyping(

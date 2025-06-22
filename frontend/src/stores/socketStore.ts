@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from './authStore';
+import axios from 'axios';
 
 export interface ChatMessage {
   id: string;
@@ -25,7 +26,8 @@ interface SocketState {
   currentRoom: string | null;
   typingUsers: string[];
   joinRoom: (username: string, room: string) => void;
-  sendMessage: (message: string) => void;
+  sendMessage: (message: string) => Promise<void>;
+  fetchMessages: (roomId: string) => Promise<void>;
   startTyping: () => void;
   stopTyping: () => void;
   initializeSocket: () => void;
@@ -86,10 +88,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
         get().addMessage(message);
       });
 
-      newSocket.on('room-messages', (roomMessages: ChatMessage[]) => {
-        get().setMessages(roomMessages);
-      });
-
       newSocket.on('room-users', (users: User[]) => {
         get().setRoomUsers(users);
       });
@@ -134,20 +132,59 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
   },
 
   joinRoom: (username: string, room: string) => {
-    const { socket } = get();
+    const { socket, fetchMessages } = get();
     if (socket) {
       socket.emit('join-room', { username, room });
       set({ currentRoom: room, messages: [] }); // Clear messages when joining new room
 
-      // Request room messages
-      socket.emit('get-messages');
+      // Fetch room messages via API
+      fetchMessages(room);
     }
   },
 
-  sendMessage: (message: string) => {
-    const { socket } = get();
-    if (socket && message.trim()) {
-      socket.emit('send-message', { message: message.trim() });
+  fetchMessages: async (roomId: string) => {
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const { token } = useAuthStore.getState();
+
+      const response = await axios.get(`${API_BASE_URL}/api/chats/${roomId}/messages`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data && response.data.messages) {
+        set({ messages: response.data.messages });
+      }
+    } catch (error) {
+      console.error('Failed to fetch messages:', error);
+    }
+  },
+
+  sendMessage: async (message: string) => {
+    try {
+      const { currentRoom } = get();
+      const { user, token } = useAuthStore.getState();
+
+      if (!currentRoom || !user || !message.trim()) {
+        return;
+      }
+
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+      await axios.post(`${API_BASE_URL}/api/chats/${currentRoom}/messages`, {
+        message: message.trim(),
+        username: user.username || user.email || 'Anonymous',
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      // Message will be received via WebSocket broadcast, no need to add it manually
+    } catch (error) {
+      console.error('Failed to send message:', error);
     }
   },
 
