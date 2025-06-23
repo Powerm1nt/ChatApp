@@ -37,6 +37,22 @@ function App() {
             }
           />
           <Route
+            path="/chat/:id"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/:guild_id/:channel_id"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/settings"
             element={
               <ProtectedRoute>
@@ -45,6 +61,7 @@ function App() {
             }
           />
           <Route path="/" element={<Navigate to="/chat" replace />} />
+          <Route path="*" element={<Navigate to="/chat" replace />} />
         </Routes>
       </div>
     </Router>

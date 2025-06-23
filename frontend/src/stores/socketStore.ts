@@ -18,9 +18,20 @@ export interface User {
   joinedAt: Date;
 }
 
+export interface Guild {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: Date;
+  channels: Channel[];
+}
+
 export interface Channel {
   id: string;
   name: string;
+  description?: string;
+  guildId: string;
+  createdAt: Date;
   stats: {
     userCount: number;
     messageCount: number;
@@ -32,13 +43,16 @@ interface SocketState {
   isConnected: boolean;
   messages: ChatMessage[];
   roomUsers: User[];
+  guilds: Guild[];
   channels: Channel[];
+  currentGuild: string | null;
   currentRoom: string | null;
   typingUsers: string[];
-  joinRoom: (username: string, room: string) => void;
-  sendMessage: (message: string) => Promise<void>;
-  fetchMessages: (roomId: string) => Promise<void>;
-  fetchChannels: () => Promise<void>;
+  joinRoom: (username: string, room: string, guildId?: string) => void;
+  sendMessage: (message: string, guildId?: string, channelId?: string) => Promise<void>;
+  fetchMessages: (roomId: string, guildId?: string) => Promise<void>;
+  fetchGuilds: () => Promise<void>;
+  fetchChannels: (guildId?: string) => Promise<void>;
   startTyping: () => void;
   stopTyping: () => void;
   initializeSocket: () => void;
@@ -48,7 +62,9 @@ interface SocketState {
   addMessage: (message: ChatMessage) => void;
   setMessages: (messages: ChatMessage[]) => void;
   setRoomUsers: (users: User[]) => void;
+  setGuilds: (guilds: Guild[]) => void;
   setChannels: (channels: Channel[]) => void;
+  setCurrentGuild: (guildId: string | null) => void;
   setCurrentRoom: (room: string | null) => void;
   updateTypingUsers: (username: string, isTyping: boolean) => void;
 }
@@ -58,7 +74,9 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
   isConnected: false,
   messages: [],
   roomUsers: [],
+  guilds: [],
   channels: [],
+  currentGuild: null,
   currentRoom: null,
   typingUsers: [],
 
@@ -67,7 +85,9 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
   addMessage: (message: ChatMessage) => set(state => ({ messages: [...state.messages, message] })),
   setMessages: (messages: ChatMessage[]) => set({ messages }),
   setRoomUsers: (users: User[]) => set({ roomUsers: users }),
+  setGuilds: (guilds: Guild[]) => set({ guilds }),
   setChannels: (channels: Channel[]) => set({ channels }),
+  setCurrentGuild: (guildId: string | null) => set({ currentGuild: guildId }),
   setCurrentRoom: (room: string | null) => set({ currentRoom: room }),
 
   updateTypingUsers: (username: string, isTyping: boolean) => {
@@ -133,79 +153,120 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
   disconnectSocket: () => {
     const { socket } = get();
     if (socket) {
-      socket.close();
-      set({
-        socket: null,
-        isConnected: false,
-        messages: [],
-        roomUsers: [],
-        currentRoom: null,
-        typingUsers: []
-      });
+      socket.close();        set({
+          socket: null,
+          isConnected: false,
+          messages: [],
+          roomUsers: [],
+          guilds: [],
+          channels: [],
+          currentGuild: null,
+          currentRoom: null,
+          typingUsers: []
+        });
     }
-  },
-
-  joinRoom: (username: string, room: string) => {
-    const { socket, fetchMessages } = get();
-    if (socket) {
-      socket.emit('join-room', { username, room });
-      set({ currentRoom: room, messages: [] }); // Clear messages when joining new room
-
-      // Fetch room messages via API
-      fetchMessages(room);
-    }
-  },
-
-  fetchMessages: async (roomId: string) => {
+  },  joinRoom: (username: string, room: string, guildId?: string) => {
+    const { fetchMessages } = get();
+    // Don't emit join-room to socket, just set current room and fetch messages via API
+    set({ 
+      currentRoom: room, 
+      currentGuild: guildId || null,
+      messages: [] 
+    }); // Clear messages when switching rooms
+    // Fetch room messages via API
+    fetchMessages(room, guildId);
+  },  fetchMessages: async (roomId: string, guildId?: string) => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const { token } = useAuthStore.getState();
-
-      const response = await axios.get(`${API_BASE_URL}/api/chats/${roomId}/messages`, {
+      
+      let url: string;
+      if (guildId) {
+        url = `${API_BASE_URL}/api/guilds/${guildId}/channels/${roomId}/messages`;
+      } else {
+        // Fallback to legacy endpoint
+        url = `${API_BASE_URL}/api/chats/${roomId}/messages`;
+      }
+      
+      const response = await axios.get(url, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-
       if (response.data && response.data.messages) {
         set({ messages: response.data.messages });
       }
     } catch (error) {
       console.error('Failed to fetch messages:', error);
     }
-  },
-
-  fetchChannels: async () => {
+  },  fetchGuilds: async () => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const { token } = useAuthStore.getState();
-
-      const response = await axios.get(`${API_BASE_URL}/api/chats`, {
+      const response = await axios.get(`${API_BASE_URL}/api/guilds`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+      if (response.data && response.data.guilds) {
+        set({ guilds: response.data.guilds });
+      }
+    } catch (error) {
+      console.error('Failed to fetch guilds:', error);
+    }
+  },
 
-      if (response.data && response.data.rooms) {
+  fetchChannels: async (guildId?: string) => {
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const { token } = useAuthStore.getState();
+      
+      let url: string;
+      if (guildId) {
+        url = `${API_BASE_URL}/api/guilds/${guildId}/channels`;
+      } else {
+        // Fallback to legacy endpoint
+        url = `${API_BASE_URL}/api/chats`;
+      }
+      
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (guildId && response.data && response.data.channels) {
+        set({ channels: response.data.channels });
+      } else if (response.data && response.data.rooms) {
+        // Legacy format
         set({ channels: response.data.rooms });
       }
     } catch (error) {
       console.error('Failed to fetch channels:', error);
     }
-  },
-
-  sendMessage: async (message: string) => {
+  },  sendMessage: async (message: string, guildId?: string, channelId?: string) => {
     try {
-      const { currentRoom } = get();
+      const { currentRoom, currentGuild } = get();
       const { user, token } = useAuthStore.getState();
-
-      if (!currentRoom || !user || !message.trim()) {
+      
+      const targetGuildId = guildId || currentGuild;
+      const targetChannelId = channelId || currentRoom;
+      
+      if (!targetChannelId || !user || !message.trim()) {
         return;
       }
 
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
-      await axios.post(`${API_BASE_URL}/api/chats/${currentRoom}/messages`, {
+      
+      let url: string;
+      if (targetGuildId) {
+        url = `${API_BASE_URL}/api/guilds/${targetGuildId}/channels/${targetChannelId}/messages`;
+      } else {
+        // Fallback to legacy endpoint
+        url = `${API_BASE_URL}/api/chats/${targetChannelId}/messages`;
+      }
+      
+      await axios.post(url, {
         message: message.trim(),
         username: user.username || user.email || 'Anonymous',
       }, {

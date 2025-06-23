@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useSocketStore, ChatMessage, User, Channel } from '../stores/socketStore';
 import { Send, Users, LogOut, MessageCircle, Wifi, WifiOff, Hash, Settings } from 'lucide-react';
@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MessageChatBubbleProps {
   message: ChatMessage;
@@ -82,12 +83,15 @@ function MessageChatBubble({
 
 export default function ChatPage() {
   const navigate = useNavigate();
+  const { id: channelId, guild_id: guildId, channel_id: channelIdFromGuild } = useParams();
   const { user, signOut } = useAuthStore();
   const { 
     isConnected, 
     messages,
     roomUsers, 
+    guilds,
     channels,
+    currentGuild,
     currentRoom, 
     typingUsers,
     joinRoom, 
@@ -95,7 +99,9 @@ export default function ChatPage() {
     startTyping, 
     stopTyping,
     initializeSocket,
-    fetchChannels
+    fetchGuilds,
+    fetchChannels,
+    setCurrentGuild
   } = useSocketStore();
 
   const [messageInput, setMessageInput] = useState('');
@@ -124,16 +130,37 @@ export default function ChatPage() {
     }
   }, [user, username]);
 
-  // Fetch channels when component mounts and user is authenticated
+  // Fetch guilds and channels when component mounts and user is authenticated
   useEffect(() => {
-    if (user && hasJoinedRoom) {
-      fetchChannels();
+    if (user) {
+      fetchGuilds();
+      if (guildId) {
+        fetchChannels(guildId);
+      } else {
+        fetchChannels(); // Fallback to legacy
+      }
+      setHasJoinedRoom(true); // Auto-join since we're listing all channels
     }
-  }, [user, hasJoinedRoom, fetchChannels]);
+  }, [user, guildId, fetchGuilds, fetchChannels]);
 
-  const handleChannelSelect = (channelId: string) => {
+  // Handle channel ID from URL params
+  useEffect(() => {
+    const targetChannelId = channelIdFromGuild || channelId;
+    const targetGuildId = guildId;
+    
+    if (targetChannelId && user && username) {
+      // Set current room and fetch messages for the specific channel
+      joinRoom(username, targetChannelId, targetGuildId);
+    }
+  }, [channelId, channelIdFromGuild, guildId, user, username, joinRoom]);
+
+  const handleChannelSelect = (channelId: string, guildId?: string) => {
     if (username.trim()) {
-      joinRoom(username.trim(), channelId);
+      if (guildId) {
+        navigate(`/${guildId}/${channelId}`);
+      } else {
+        navigate(`/chat/${channelId}`);
+      }
     }
   };
 
@@ -192,131 +219,179 @@ export default function ChatPage() {
       hour: '2-digit', 
       minute: '2-digit' 
     });
-  };
-
-  if (!hasJoinedRoom) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="max-w-md w-full">
-          <CardHeader className="text-center">
-            <div className="mx-auto h-12 w-12 bg-primary rounded-full flex items-center justify-center mb-4">
-              <MessageCircle className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <CardTitle className="text-3xl">Join Chat Room</CardTitle>
-            <CardDescription>
-              Enter your details to start chatting
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="username" className="text-sm font-medium">
-                Username
-              </label>
-              <Input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="room" className="text-sm font-medium">
-                Room
-              </label>
-              <Select value={room} onValueChange={setRoom}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a room" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="general">General</SelectItem>
-                  <SelectItem value="random">Random</SelectItem>
-                  <SelectItem value="tech">Tech Talk</SelectItem>
-                  <SelectItem value="gaming">Gaming</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button
-              onClick={handleJoinRoom}
-              disabled={!username.trim() || !room.trim()}
-              className="w-full"
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Join Room
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  };    // Show guild/channel list if no specific channel is selected
+    if (!channelIdFromGuild && !channelId && !hasJoinedRoom) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <Card className="max-w-2xl w-full">
+            <CardHeader className="text-center">
+              <div className="mx-auto h-12 w-12 bg-primary rounded-full flex items-center justify-center mb-4">
+                <MessageCircle className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <CardTitle className="text-3xl">Select a Workspace & Channel</CardTitle>
+              <CardDescription>
+                Choose a workspace and channel to start chatting
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {guilds.length > 0 ? (
+                <div className="space-y-4">
+                  {guilds.map((guild) => (
+                    <div key={guild.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-lg font-semibold">{guild.name}</h3>
+                        <Badge variant="secondary">
+                          {guild.channels.length} channel{guild.channels.length !== 1 ? 's' : ''}
+                        </Badge>
+                      </div>
+                      {guild.description && (
+                        <p className="text-sm text-muted-foreground mb-3">{guild.description}</p>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {guild.channels.map((channel) => (
+                          <Button
+                            key={channel.id}
+                            variant="outline"
+                            className="justify-start h-auto p-3"
+                            onClick={() => handleChannelSelect(channel.id, guild.id)}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <Hash className="h-4 w-4" />
+                              <div className="text-left">
+                                <div className="font-medium">{channel.name}</div>
+                                {channel.description && (
+                                  <div className="text-xs text-muted-foreground">{channel.description}</div>
+                                )}
+                                <div className="text-xs text-muted-foreground">
+                                  {channel.stats?.userCount || 0} users online
+                                </div>
+                              </div>
+                            </div>
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">Loading workspaces...</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <div className="bg-card shadow-sm border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Badge variant={isConnected ? "default" : "destructive"} className="flex items-center space-x-1">
-                {isConnected ? (
-                  <Wifi className="h-3 w-3" />
-                ) : (
-                  <WifiOff className="h-3 w-3" />
+    <TooltipProvider>
+      <div className="h-screen flex bg-background">
+        {/* Guild Sidebar - Far Left */}
+        <div className="w-16 bg-card border-r flex flex-col items-center py-4 space-y-2">
+          {guilds.map((guild) => (
+            <Tooltip key={guild.id}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => {
+                    setCurrentGuild(guild.id);
+                    // If this guild has channels, select the first one
+                    if (guild.channels.length > 0) {
+                      handleChannelSelect(guild.channels[0].id, guild.id);
+                    }
+                  }}
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                    currentGuild === guild.id
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Avatar className="w-8 h-8">
+                    <AvatarFallback className="text-sm font-semibold">
+                      {guild.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p className="font-medium">{guild.name}</p>
+                {guild.description && (
+                  <p className="text-xs text-muted-foreground">{guild.description}</p>
                 )}
-                <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
-              </Badge>
-              <h1 className="text-xl font-semibold">
-                #{currentRoom}
-              </h1>
-            </div>
-            <Badge variant="secondary">
-              {roomUsers.length} user{roomUsers.length !== 1 ? 's' : ''} online
-            </Badge>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">
-              Welcome, {username}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/settings')}
-              className="flex items-center space-x-1"
-            >
-              <Settings className="h-4 w-4" />
-              <span>Settings</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={signOut}
-              className="flex items-center space-x-1"
-            >
-              <LogOut className="h-4 w-4" />
-              <span>Sign Out</span>
-            </Button>
-          </div>
+              </TooltipContent>
+            </Tooltip>
+          ))}
         </div>
-      </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Channels Sidebar - Left */}
-        <div className="w-64 bg-card border-r p-4">
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="bg-card shadow-sm border-b px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Badge variant={isConnected ? "default" : "destructive"} className="flex items-center space-x-1">
+                    {isConnected ? (
+                      <Wifi className="h-3 w-3" />
+                    ) : (
+                      <WifiOff className="h-3 w-3" />
+                    )}
+                    <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+                  </Badge>
+                  <h1 className="text-xl font-semibold">
+                    {(() => {
+                      const currentChannel = channels.find(c => c.id === (channelIdFromGuild || channelId));
+                      return currentChannel ? `#${currentChannel.name}` : '#Select a channel';
+                    })()}
+                  </h1>
+                </div>
+                <Badge variant="secondary">
+                  {roomUsers.length} user{roomUsers.length !== 1 ? 's' : ''} online
+                </Badge>
+              </div>
+
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-muted-foreground">
+                  Welcome, {username}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/settings')}
+                  className="flex items-center space-x-1"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Settings</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={signOut}
+                  className="flex items-center space-x-1"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Sign Out</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 flex overflow-hidden">
+            {/* Channels Sidebar - Left */}
+            <div className="w-64 bg-card border-r p-4">
           <h3 className="text-sm font-medium mb-3 flex items-center">
             <Hash className="h-4 w-4 mr-2" />
             Channels
           </h3>
           <Separator className="mb-3" />
           <div className="space-y-1">
-            {channels.map((channel: Channel) => (
+            {channels
+              .filter(channel => !currentGuild || channel.guildId === currentGuild)
+              .map((channel: Channel) => (
               <button
                 key={channel.id}
                 onClick={() => handleChannelSelect(channel.id)}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                  currentRoom === channel.id
+                  (currentRoom === channel.id || channelId === channel.id)
                     ? 'bg-primary text-primary-foreground'
                     : 'hover:bg-muted text-muted-foreground hover:text-foreground'
                 }`}
@@ -341,7 +416,16 @@ export default function ChatPage() {
         <div className="flex-1 flex flex-col">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6">
-            {messages.map((message: ChatMessage, index: number) => (
+            {!channelId && (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-muted-foreground">
+                  <Hash className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">Select a channel</h3>
+                  <p>Choose a channel from the sidebar to start chatting</p>
+                </div>
+              </div>
+            )}
+            {channelId && messages.map((message: ChatMessage, index: number) => (
               <div key={message.id}>
                 {/* Add padding between message groups when username changes */}
                 {index > 0 && messages[index - 1].username !== message.username && (
@@ -382,13 +466,13 @@ export default function ChatPage() {
                 value={messageInput}
                 onChange={handleInputChange}
                 onBlur={handleStopTyping}
-                placeholder="Type your message..."
-                disabled={!isConnected}
+                placeholder={channelId ? "Type your message..." : "Select a channel to start chatting"}
+                disabled={!isConnected || !channelId}
                 className="flex-1"
               />
               <Button
                 type="submit"
-                disabled={!messageInput.trim() || !isConnected}
+                disabled={!messageInput.trim() || !isConnected || !channelId}
                 size="sm"
               >
                 <Send className="h-4 w-4" />
@@ -424,7 +508,9 @@ export default function ChatPage() {
             ))}
           </div>
         </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

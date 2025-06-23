@@ -6,7 +6,24 @@ export interface User {
   id: string;
   username: string;
   room: string;
+  guildId: string;
   joinedAt: Date;
+}
+
+export interface Guild {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: Date;
+  channels: Channel[];
+}
+
+export interface Channel {
+  id: string;
+  name: string;
+  description?: string;
+  guildId: string;
+  createdAt: Date;
 }
 
 @Injectable()
@@ -14,12 +31,70 @@ export class ChatService {
   private users: Map<string, User> = new Map();
   private messages: Map<string, ChatMessage[]> = new Map(); // room -> messages
   private rooms: Set<string> = new Set();
+  private guilds: Map<string, Guild> = new Map();
+  private channels: Map<string, Channel> = new Map(); // channelId -> channel
 
-  addUser(socketId: string, username: string, room: string): User {
+  constructor() {
+    // Initialize with a default guild and some channels
+    this.initializeDefaultData();
+  }
+
+  private initializeDefaultData() {
+    const defaultGuildId = this.generateLittleUuid();
+    const defaultGuild: Guild = {
+      id: defaultGuildId,
+      name: 'Default Workspace',
+      description: 'Default workspace for chat',
+      createdAt: new Date(),
+      channels: []
+    };
+
+    const defaultChannels: Channel[] = [
+      {
+        id: this.generateLittleUuid(),
+        name: 'general',
+        description: 'General discussion',
+        guildId: defaultGuildId,
+        createdAt: new Date()
+      },
+      {
+        id: this.generateLittleUuid(),
+        name: 'random',
+        description: 'Random chat',
+        guildId: defaultGuildId,
+        createdAt: new Date()
+      },
+      {
+        id: this.generateLittleUuid(),
+        name: 'tech',
+        description: 'Tech discussions',
+        guildId: defaultGuildId,
+        createdAt: new Date()
+      }
+    ];
+
+    defaultGuild.channels = defaultChannels;
+    this.guilds.set(defaultGuild.id, defaultGuild);
+    
+    defaultChannels.forEach(channel => {
+      this.channels.set(channel.id, channel);
+      this.rooms.add(channel.id); // Keep backward compatibility
+    });
+  }
+
+  addUser(socketId: string, username: string, room: string, guildId?: string): User {
+    // If no guildId provided, try to find the channel's guild
+    let userGuildId = guildId;
+    if (!userGuildId) {
+      const channel = this.channels.get(room);
+      userGuildId = channel?.guildId || Array.from(this.guilds.keys())[0];
+    }
+
     const user: User = {
       id: socketId,
       username,
       room,
+      guildId: userGuildId,
       joinedAt: new Date(),
     };
 
@@ -74,6 +149,11 @@ export class ChatService {
     return uuidv4();
   }
 
+  // Generate little UUID level 1 (first part of UUID)
+  private generateLittleUuid(): string {
+    return uuidv4().split('-')[0];
+  }
+
   // Get room statistics
   getRoomStats(room: string): {
     userCount: number;
@@ -105,5 +185,65 @@ export class ChatService {
       );
       this.messages.set(room, filteredMessages);
     });
+  }
+
+  // Guild management methods
+  getAllGuilds(): Guild[] {
+    return Array.from(this.guilds.values());
+  }
+
+  getGuild(guildId: string): Guild | null {
+    return this.guilds.get(guildId) || null;
+  }
+
+  createGuild(name: string, description?: string): Guild {
+    const guild: Guild = {
+      id: this.generateLittleUuid(),
+      name,
+      description,
+      createdAt: new Date(),
+      channels: []
+    };
+
+    this.guilds.set(guild.id, guild);
+    return guild;
+  }
+
+  // Channel management methods
+  getGuildChannels(guildId: string): Channel[] {
+    const guild = this.guilds.get(guildId);
+    return guild ? guild.channels : [];
+  }
+
+  getChannel(channelId: string): Channel | null {
+    return this.channels.get(channelId) || null;
+  }
+
+  createChannel(guildId: string, name: string, description?: string): Channel | null {
+    const guild = this.guilds.get(guildId);
+    if (!guild) return null;
+
+    const channel: Channel = {
+      id: this.generateLittleUuid(),
+      name,
+      description,
+      guildId,
+      createdAt: new Date()
+    };
+
+    this.channels.set(channel.id, channel);
+    guild.channels.push(channel);
+    this.rooms.add(channel.id); // Keep backward compatibility
+
+    return channel;
+  }
+
+  // Get channel statistics
+  getChannelStats(channelId: string): {
+    userCount: number;
+    messageCount: number;
+    users: string[];
+  } {
+    return this.getRoomStats(channelId); // Reuse existing room stats logic
   }
 }
