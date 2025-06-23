@@ -11,6 +11,7 @@ A real-time chat application built with React.js (Vite) frontend and NestJS back
 - Typing indicators
 - User presence indicators
 - Responsive design with Tailwind CSS
+- **Theme Support**: Light, Dark, and System themes with automatic switching
 
 ## Tech Stack
 

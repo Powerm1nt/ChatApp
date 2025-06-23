@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useSocketStore, ChatMessage, User, Channel } from '../stores/socketStore';
-import { Send, Users, LogOut, MessageCircle, Wifi, WifiOff, Hash } from 'lucide-react';
+import { Send, Users, LogOut, MessageCircle, Wifi, WifiOff, Hash, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -280,6 +280,15 @@ export default function ChatPage() {
             <span className="text-sm text-muted-foreground">
               Welcome, {username}
             </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/settings')}
+              className="flex items-center space-x-1"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Settings</span>
+            </Button>
             <Button
               variant="ghost"
               size="sm"
