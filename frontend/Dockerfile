@@ -7,14 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json yarn.lock ./
 
-# Install dependencies
-RUN yarn install --frozen-lockfile
-
-# Copy source code
-COPY . .
-
 # Development stage
-FROM base AS development
+FROM base AS dev
 EXPOSE 5173
 CMD ["yarn", "dev", "--", "--host", "0.0.0.0"]
 

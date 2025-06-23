@@ -7,14 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json yarn.lock ./
 
-# Install dependencies
-RUN yarn install --frozen-lockfile
-
-# Copy source code
-COPY . .
-
 # Development stage
-FROM base AS development
+FROM base AS dev
 EXPOSE 3001
 CMD ["yarn", "start:dev"]
 
@@ -28,7 +22,7 @@ WORKDIR /app
 
 # Copy package files and install only production dependencies
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --production && yarn cache clean
+RUN yarn install --frozen-lockfile --production --network-timeout 100000 && yarn cache clean
 
 # Copy built application from build stage
 COPY --from=build /app/dist ./dist
