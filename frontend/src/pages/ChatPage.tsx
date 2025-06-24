@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { CreateGuildDialog } from '@/components/CreateGuildDialog';
 
 interface MessageChatBubbleProps {
   message: ChatMessage;
@@ -23,7 +24,7 @@ interface MessageChatBubbleProps {
 
 function MessageChatBubble({ 
   message, 
-  username, 
+  username: _username, 
   showAvatar, 
   showDate, 
   isDest, 
@@ -106,7 +107,7 @@ export default function ChatPage() {
 
   const [messageInput, setMessageInput] = useState('');
   const [username, setUsername] = useState('');
-  const [room, setRoom] = useState('general');
+  // const [room] = useState('general');
   const [hasJoinedRoom, setHasJoinedRoom] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
 
@@ -164,12 +165,12 @@ export default function ChatPage() {
     }
   };
 
-  const handleJoinRoom = () => {
-    if (username.trim() && room.trim()) {
-      joinRoom(username.trim(), room.trim());
-      setHasJoinedRoom(true);
-    }
-  };
+  // const handleJoinRoom = () => {
+  //   if (username.trim() && room.trim()) {
+  //     joinRoom(username.trim(), room.trim());
+  //     setHasJoinedRoom(true);
+  //   }
+  // };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,34 +220,87 @@ export default function ChatPage() {
       hour: '2-digit', 
       minute: '2-digit' 
     });
-  };    // Show guild/channel list if no specific channel is selected
-    if (!channelIdFromGuild && !channelId && !hasJoinedRoom) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <Card className="max-w-2xl w-full">
-            <CardHeader className="text-center">
-              <div className="mx-auto h-12 w-12 bg-primary rounded-full flex items-center justify-center mb-4">
-                <MessageCircle className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <CardTitle className="text-3xl">Select a Workspace & Channel</CardTitle>
-              <CardDescription>
-                Choose a workspace and channel to start chatting
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {guilds.length > 0 ? (
-                <div className="space-y-4">
-                  {guilds.map((guild) => (
-                    <div key={guild.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-lg font-semibold">{guild.name}</h3>
-                        <Badge variant="secondary">
-                          {guild.channels.length} channel{guild.channels.length !== 1 ? 's' : ''}
-                        </Badge>
-                      </div>
-                      {guild.description && (
-                        <p className="text-sm text-muted-foreground mb-3">{guild.description}</p>
-                      )}
+  };
+
+  // Show placeholder when no channels selected (both panels hidden)
+  if (!channelIdFromGuild && !channelId && !hasJoinedRoom) {
+    return (
+      <TooltipProvider>
+        <div className="h-screen flex bg-background">
+          {/* Guild Sidebar - Far Left */}
+          <div className="w-16 bg-card border-r flex flex-col items-center py-4 space-y-2">
+            {guilds.map((guild) => (
+              <Tooltip key={guild.id}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => {
+                      setCurrentGuild(guild.id);
+                      // If this guild has channels, select the first one
+                      if (guild.channels.length > 0) {
+                        handleChannelSelect(guild.channels[0].id, guild.id);
+                      }
+                    }}
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                      currentGuild === guild.id
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback className="text-sm font-semibold">
+                        {guild.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="font-medium">{guild.name}</p>
+                  {guild.description && (
+                    <p className="text-xs text-muted-foreground">{guild.description}</p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            ))}
+            
+            {/* Add Guild Button */}
+            <div className="mt-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <CreateGuildDialog />
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Create New Workspace</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+
+          {/* Placeholder Content */}
+          <div className="flex-1 flex items-center justify-center bg-background">
+            <Card className="max-w-2xl w-full">
+              <CardHeader className="text-center">
+                <div className="mx-auto h-12 w-12 bg-primary rounded-full flex items-center justify-center mb-4">
+                  <MessageCircle className="h-6 w-6 text-primary-foreground" />
+                </div>
+                <CardTitle className="text-3xl">Select a Workspace & Channel</CardTitle>
+                <CardDescription>
+                  Choose a workspace and channel to start chatting, or create a new workspace to get started
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {guilds.length > 0 ? (
+                  <div className="space-y-4">
+                    {guilds.map((guild) => (
+                      <div key={guild.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-lg font-semibold">{guild.name}</h3>
+                          <Badge variant="secondary">
+                            {guild.channels.length} channel{guild.channels.length !== 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+                        {guild.description && (
+                          <p className="text-sm text-muted-foreground mb-3">{guild.description}</p>
+                        )}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {guild.channels.map((channel) => (
                           <Button
@@ -274,14 +328,22 @@ export default function ChatPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Loading workspaces...</p>
+                <div className="text-center py-8 space-y-4">
+                  <p className="text-muted-foreground">No workspaces found</p>
+                  <CreateGuildDialog>
+                    <Button variant="outline" className="flex items-center space-x-2">
+                      <MessageCircle className="h-4 w-4" />
+                      <span>Create Your First Workspace</span>
+                    </Button>
+                  </CreateGuildDialog>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
-      );
+        </div>
+      </TooltipProvider>
+    );
     }
 
   return (
@@ -321,6 +383,18 @@ export default function ChatPage() {
               </TooltipContent>
             </Tooltip>
           ))}
+          
+          {/* Add Guild Button */}
+          <div className="mt-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <CreateGuildDialog />
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Create New Workspace</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         <div className="flex-1 flex flex-col">

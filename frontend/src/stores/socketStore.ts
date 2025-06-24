@@ -53,6 +53,7 @@ interface SocketState {
   fetchMessages: (roomId: string, guildId?: string) => Promise<void>;
   fetchGuilds: () => Promise<void>;
   fetchChannels: (guildId?: string) => Promise<void>;
+  createGuild: (name: string, description?: string) => Promise<Guild | null>;
   startTyping: () => void;
   stopTyping: () => void;
   initializeSocket: () => void;
@@ -165,7 +166,7 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
           typingUsers: []
         });
     }
-  },  joinRoom: (username: string, room: string, guildId?: string) => {
+  },  joinRoom: (_username: string, room: string, guildId?: string) => {
     const { fetchMessages } = get();
     // Don't emit join-room to socket, just set current room and fetch messages via API
     set({ 
@@ -244,7 +245,36 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
     } catch (error) {
       console.error('Failed to fetch channels:', error);
     }
-  },  sendMessage: async (message: string, guildId?: string, channelId?: string) => {
+  },
+
+  createGuild: async (name: string, description?: string) => {
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const { token } = useAuthStore.getState();
+      
+      const response = await axios.post(`${API_BASE_URL}/api/guilds`, {
+        name: name.trim(),
+        description: description?.trim() || undefined,
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.data) {
+        // Refresh guilds list after creating a new one
+        await get().fetchGuilds();
+        return response.data;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to create guild:', error);
+      return null;
+    }
+  },
+
+  sendMessage: async (message: string, guildId?: string, channelId?: string) => {
     try {
       const { currentRoom, currentGuild } = get();
       const { user, token } = useAuthStore.getState();
