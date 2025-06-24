@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ChatModule } from './chat/chat.module';
 import { AuthModule } from './auth/auth.module';
+import { FriendsModule } from './friends/friends.module';
 import config from './mikro-orm.config';
 
 @Module({
@@ -15,6 +16,7 @@ import config from './mikro-orm.config';
     MikroOrmModule.forRoot(config),
     ChatModule,
     AuthModule,
+    FriendsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

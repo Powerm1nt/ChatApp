@@ -1,8 +1,15 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import LoginPage from './pages/LoginPage';
-import ChatPage from './pages/ChatPage';
-import SettingsPage from './pages/SettingsPage';
-import { useAuthStore } from './stores/authStore';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import LoginPage from "./pages/LoginPage";
+import HomePage from "./pages/HomePage";
+import SettingsPage from "./pages/SettingsPage";
+import ChatView from "./components/chat/ChatView";
+import { AppLayout } from "./components/layout/AppLayout";
+import { useAuthStore } from "./stores/authStore";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuthStore();
@@ -25,45 +32,79 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route
-            path="/chat"
-            element={
-              <ProtectedRoute>
-                <ChatPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/chat/:id"
-            element={
-              <ProtectedRoute>
-                <ChatPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/:guild_id/:channel_id"
-            element={
-              <ProtectedRoute>
-                <ChatPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/me"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <HomePage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guild/:guild_id/:channel_id"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ChatView
+                  showUserList={true}
+                  showMessagePanel={true}
+                  showChannelList={true}
+                />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guild/:guild_id"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ChatView
+                  showUserList={false}
+                  showMessagePanel={false}
+                  showChannelList={true}
+                />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/direct/:user_id"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ChatView showUserList={true} showMessagePanel={true} />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/group/:group_id"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ChatView showUserList={true} showMessagePanel={true} />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
                 <SettingsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/" element={<Navigate to="/chat" replace />} />
-          <Route path="*" element={<Navigate to="/chat" replace />} />
-        </Routes>
-      </div>
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/" element={<Navigate to="/me" replace />} />
+        <Route path="*" element={<Navigate to="/me" replace />} />
+      </Routes>
     </Router>
   );
 }

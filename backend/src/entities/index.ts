@@ -3,3 +3,7 @@ export * from './guild.entity';
 export * from './channel.entity';
 export * from './user-guild.entity';
 export * from './message.entity';
+export * from './friend-request.entity';
+export * from './group.entity';
+export * from './group-message.entity';
+export * from './direct-message.entity';
