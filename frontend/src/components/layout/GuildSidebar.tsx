@@ -1,14 +1,19 @@
-import { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Plus, Activity } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useSocketStore } from '../../stores/socketStore';
-import { CreateGuildDialog } from '../CreateGuildDialog';
-import { ServiceStatusIndicator } from '../status/ServiceStatusIndicator';
-import { GuildStatusDialog } from '../status/GuildStatusDialog';
-import { parseShortUuid } from '../../utilities';
+import { useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Home, Plus, Activity } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useSocketStore } from "../../stores/socketStore";
+import { CreateGuildDialog } from "../CreateGuildDialog";
+import { ServiceStatusIndicator } from "../status/ServiceStatusIndicator";
+import { GuildStatusDialog } from "../status/GuildStatusDialog";
+import { parseShortUuid } from "../../utilities";
 
 export function GuildSidebar() {
   const navigate = useNavigate();
@@ -30,9 +35,9 @@ export function GuildSidebar() {
 
   const getGuildInitials = (name: string) => {
     return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
       .toUpperCase()
       .slice(0, 2);
   };
@@ -49,14 +54,14 @@ export function GuildSidebar() {
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant={isActive('/me') ? 'secondary' : 'ghost'}
+              variant={isActive("/me") ? "secondary" : "ghost"}
               size="icon"
               className={`w-12 h-12 mx-2 rounded-xl transition-all duration-200 ${
-                isActive('/me')
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg'
+                isActive("/me")
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg"
               }`}
-              onClick={() => navigate('/me')}
+              onClick={() => navigate("/me")}
             >
               <Home className="h-6 w-6" />
             </Button>
@@ -80,8 +85,8 @@ export function GuildSidebar() {
                     size="icon"
                     className={`w-12 h-12 mx-2 rounded-xl transition-all duration-200 ${
                       isGuildActive(guild.id)
-                        ? 'bg-primary text-primary-foreground rounded-lg'
-                        : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg'
+                        ? "bg-primary text-primary-foreground rounded-lg"
+                        : "bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg"
                     }`}
                     onClick={() => handleGuildClick(guild.id)}
                   >
@@ -95,7 +100,10 @@ export function GuildSidebar() {
                 <TooltipContent side="right">
                   <div className="flex items-center gap-2">
                     <span>{guild.name}</span>
-                    <GuildStatusDialog guildId={guild.id} guildName={guild.name}>
+                    <GuildStatusDialog
+                      guildId={guild.id}
+                      guildName={guild.name}
+                    >
                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                         <Activity className="h-3 w-3" />
                       </Button>
@@ -124,14 +132,6 @@ export function GuildSidebar() {
             <p>Add a Server</p>
           </TooltipContent>
         </Tooltip>
-
-        {/* Spacer to push status to bottom */}
-        <div className="flex-1" />
-
-        {/* Service Status Indicator */}
-        <div className="mx-2">
-          <ServiceStatusIndicator />
-        </div>
       </div>
     </TooltipProvider>
   );
