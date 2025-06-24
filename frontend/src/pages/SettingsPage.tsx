@@ -41,9 +41,9 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-card shadow-sm border-b px-6 py-4">
+      <div className="bg-card shadow-sm border-b px-6 py-4 sticky top-0 z-10">
         <div className="flex items-center space-x-4">
           <Button
             variant="ghost"
@@ -62,7 +62,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Content */}
-      <div className="container mx-auto px-6 py-8 max-w-2xl">
+      <div className="container mx-auto px-6 py-8 max-w-2xl flex-1 overflow-y-auto">
         <div className="space-y-6">
           {/* Theme Settings */}
           <Card>

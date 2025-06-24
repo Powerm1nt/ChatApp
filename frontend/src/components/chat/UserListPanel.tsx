@@ -151,7 +151,7 @@ export default function UserListPanel({ chatType, chatId, channelId }: UserListP
   return (
     <div className="h-full bg-card border-l flex flex-col">
       {/* Header */}
-      <div className="border-b px-4 py-3">
+      <div className="border-b px-4 py-3 sticky top-0 z-10 bg-card">
         <div className="flex items-center space-x-2">
           <Users className="h-4 w-4" />
           <h2 className="font-semibold text-sm">{getPanelTitle()}</h2>

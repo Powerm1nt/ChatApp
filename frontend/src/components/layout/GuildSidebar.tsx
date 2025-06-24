@@ -44,7 +44,7 @@ export function GuildSidebar() {
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col w-16 bg-gray-900 min-h-screen py-3 space-y-2">
+      <div className="flex flex-col w-16 bg-gray-900 h-screen py-3 space-y-2 fixed left-0 top-0 z-10">
         {/* App Logo / Home Button */}
         <Tooltip>
           <TooltipTrigger asChild>

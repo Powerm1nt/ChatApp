@@ -67,16 +67,16 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
   };
 
   return (
-    <div className="w-60 bg-gray-800 flex flex-col min-h-screen">
+    <div className="w-60 bg-gray-800 flex flex-col h-screen">
       {/* Guild Header */}
-      <div className="p-4 border-b border-gray-700">
+      <div className="p-4 border-b border-gray-700 sticky top-0 z-10 bg-gray-800">
         <h2 className="text-white font-semibold text-lg truncate">
           {currentGuild?.name ?? "Loading..."}
         </h2>
       </div>
 
       {/* Channels Section */}
-      <div className="flex-1 p-2">
+      <div className="flex-1 p-2 overflow-y-auto">
         <div className="mb-4">
           <div className="flex items-center justify-between px-2 py-1 mb-2">
             <span className="text-gray-400 text-xs font-semibold uppercase tracking-wide">

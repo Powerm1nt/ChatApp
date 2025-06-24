@@ -185,7 +185,7 @@ export default function MessagePanel({ chatType, chatId, channelId }: MessagePan
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b bg-card px-6 py-4">
+      <div className="border-b bg-card px-6 py-4 sticky top-0 z-10">
         <h2 className="text-lg font-semibold">{getChatTitle()}</h2>
         {chatType === 'direct' && (
           <p className="text-sm text-muted-foreground">Direct message</p>
