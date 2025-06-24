@@ -80,61 +80,80 @@ export class ChatController {
   @Get('guilds')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
-  async getAllGuilds() {
-    const guilds = this.chatService.getAllGuilds();
-    return {
-      guilds: guilds.map(guild => ({
+  async getUserGuilds(@Request() req: any) {
+    const userId = req.user.id;
+    const guilds = await this.chatService.getUserGuilds(userId);
+    
+    const guildsWithStats = await Promise.all(
+      guilds.map(async (guild) => ({
         ...guild,
-        channels: guild.channels.map(channel => ({
-          ...channel,
-          stats: this.chatService.getChannelStats(channel.id),
-        })),
-      })),
-    };
+        channels: await Promise.all(
+          guild.channels.getItems().map(async (channel) => ({
+            ...channel,
+            stats: await this.chatService.getChannelStats(channel.id, userId),
+          }))
+        ),
+      }))
+    );
+
+    return { guilds: guildsWithStats };
   }
 
   @Post('guilds')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.CREATED)
-  async createGuild(@Body(ValidationPipe) createGuildDto: CreateGuildDto) {
-    const guild = this.chatService.createGuild(createGuildDto.name, createGuildDto.description);
+  async createGuild(
+    @Body(ValidationPipe) createGuildDto: CreateGuildDto,
+    @Request() req: any
+  ) {
+    const userId = req.user.id;
+    const guild = await this.chatService.createGuild(createGuildDto.name, userId, createGuildDto.description);
     return guild;
   }
 
   @Get('guilds/:guildId')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
-  async getGuild(@Param('guildId') guildId: string) {
-    const guild = this.chatService.getGuild(guildId);
-    if (!guild) {
-      throw new NotFoundException('Guild not found');
-    }
+  async getGuild(
+    @Param('guildId') guildId: string,
+    @Request() req: any
+  ) {
+    const userId = req.user.id;
+    const guild = await this.chatService.getGuild(guildId, userId);
+
+    const channelsWithStats = await Promise.all(
+      guild.channels.getItems().map(async (channel) => ({
+        ...channel,
+        stats: await this.chatService.getChannelStats(channel.id, userId),
+      }))
+    );
 
     return {
       ...guild,
-      channels: guild.channels.map(channel => ({
-        ...channel,
-        stats: this.chatService.getChannelStats(channel.id),
-      })),
+      channels: channelsWithStats,
     };
   }
 
   @Get('guilds/:guildId/channels')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
-  async getGuildChannels(@Param('guildId') guildId: string) {
-    const guild = this.chatService.getGuild(guildId);
-    if (!guild) {
-      throw new NotFoundException('Guild not found');
-    }
+  async getGuildChannels(
+    @Param('guildId') guildId: string,
+    @Request() req: any
+  ) {
+    const userId = req.user.id;
+    const channels = await this.chatService.getGuildChannels(guildId, userId);
+    
+    const channelsWithStats = await Promise.all(
+      channels.map(async (channel) => ({
+        ...channel,
+        stats: await this.chatService.getChannelStats(channel.id, userId),
+      }))
+    );
 
-    const channels = this.chatService.getGuildChannels(guildId);
     return {
       guildId,
-      channels: channels.map(channel => ({
-        ...channel,
-        stats: this.chatService.getChannelStats(channel.id),
-      })),
+      channels: channelsWithStats,
     };
   }
 
@@ -143,100 +162,41 @@ export class ChatController {
   @HttpCode(HttpStatus.CREATED)
   async createChannel(
     @Param('guildId') guildId: string,
-    @Body(ValidationPipe) createChannelDto: CreateChannelDto
+    @Body(ValidationPipe) createChannelDto: CreateChannelDto,
+    @Request() req: any
   ) {
-    const channel = this.chatService.createChannel(guildId, createChannelDto.name, createChannelDto.description);
-    if (!channel) {
-      throw new NotFoundException('Guild not found');
-    }
+    const userId = req.user.id;
+    const channel = await this.chatService.createChannel(guildId, createChannelDto.name, userId, createChannelDto.description);
     return channel;
   }
 
-  // Legacy endpoint for backward compatibility
-  @Get('chats')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async getAllRooms() {
-    const rooms = this.chatService.getAllRooms();
-    return {
-      rooms: rooms.map(room => ({
-        id: room,
-        name: room,
-        stats: this.chatService.getRoomStats(room),
-      })),
-    };
-  }
+  // Legacy endpoint - removed for security
 
-  @Post()
-  @HttpCode(HttpStatus.CREATED)
-  async createRoom(@Body(ValidationPipe) createRoomDto: CreateRoomDto) {
-    // For now, we'll just add the room to the service
-    // In a real app, you might want to store room metadata
-    const roomName = createRoomDto.name.toLowerCase().replace(/\s+/g, '-');
-    
-    return {
-      id: roomName,
-      name: createRoomDto.name,
-      description: createRoomDto.description,
-      createdAt: new Date(),
-    };
-  }
+  // Legacy endpoint - removed for security
 
   @Get('guilds/:guildId/channels/:channelId/messages')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
   async getChannelMessages(
     @Param('guildId') guildId: string,
-    @Param('channelId') channelId: string
+    @Param('channelId') channelId: string,
+    @Request() req: any
   ) {
-    if (!guildId || guildId.trim() === '') {
-      throw new BadRequestException('Guild ID is required');
-    }
-    if (!channelId || channelId.trim() === '') {
-      throw new BadRequestException('Channel ID is required');
-    }
-
-    const guild = this.chatService.getGuild(guildId);
-    if (!guild) {
-      throw new NotFoundException('Guild not found');
-    }
-
-    const channel = this.chatService.getChannel(channelId);
-    if (!channel || channel.guildId !== guildId) {
-      throw new NotFoundException('Channel not found in this guild');
-    }
-
-    const messages = this.chatService.getRoomMessages(channelId);
+    const userId = req.user.id;
+    const messages = await this.chatService.getChannelMessages(channelId, userId);
     const channelUsers = this.chatService.getRoomUsers(channelId);
+    const stats = await this.chatService.getChannelStats(channelId, userId);
 
     return {
       guildId,
       channelId,
       messages,
       users: channelUsers,
-      stats: this.chatService.getChannelStats(channelId),
+      stats,
     };
   }
 
-  // Legacy endpoint for backward compatibility
-  @Get('chats/:roomId/messages')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async getRoomMessages(@Param('roomId') roomId: string) {
-    if (!roomId || roomId.trim() === '') {
-      throw new BadRequestException('Room ID is required');
-    }
-
-    const messages = this.chatService.getRoomMessages(roomId);
-    const roomUsers = this.chatService.getRoomUsers(roomId);
-
-    return {
-      roomId,
-      messages,
-      users: roomUsers,
-      stats: this.chatService.getRoomStats(roomId),
-    };
-  }
+  // Legacy endpoint - removed for security
 
   @Post('guilds/:guildId/channels/:channelId/messages')
   @UseGuards(AuthGuard('jwt'))
@@ -247,116 +207,55 @@ export class ChatController {
     @Body(ValidationPipe) sendMessageDto: SendMessageDto,
     @Request() req: any,
   ) {
-    if (!guildId || guildId.trim() === '') {
-      throw new BadRequestException('Guild ID is required');
-    }
-    if (!channelId || channelId.trim() === '') {
-      throw new BadRequestException('Channel ID is required');
-    }
+    const userId = req.user.id;
+    
+    // Save the message to database
+    const message = await this.chatService.saveMessage(
+      sendMessageDto.message.trim(),
+      userId,
+      channelId
+    );
 
-    const guild = this.chatService.getGuild(guildId);
-    if (!guild) {
-      throw new NotFoundException('Guild not found');
-    }
-
-    const channel = this.chatService.getChannel(channelId);
-    if (!channel || channel.guildId !== guildId) {
-      throw new NotFoundException('Channel not found in this guild');
-    }
-
-    // Create the message
+    // Create chat message for WebSocket broadcast
     const chatMessage: ChatMessage = {
-      id: this.chatService.generateMessageId(),
+      id: message.id,
       username: sendMessageDto.username,
-      message: sendMessageDto.message.trim(),
-      timestamp: new Date(),
+      message: message.content,
+      timestamp: message.timestamp,
       room: channelId,
     };
-
-    // Save the message
-    this.chatService.saveMessage(chatMessage);
 
     // Broadcast the message to all users in the channel via WebSocket
     this.chatGateway.broadcastMessage(channelId, chatMessage);
 
     // Notify the channel that there's a new message (for clients to refresh)
     this.chatGateway.notifyNewMessage(channelId, {
-      messageId: chatMessage.id,
-      username: chatMessage.username,
-      timestamp: chatMessage.timestamp,
-    });
-
-    return {
-      success: true,
-      message: chatMessage,
-    };
-  }
-
-  // Legacy endpoint for backward compatibility
-  @Post('chats/:roomId/messages')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.CREATED)
-  async sendMessage(
-    @Param('roomId') roomId: string,
-    @Body(ValidationPipe) sendMessageDto: SendMessageDto,
-    @Request() req: any,
-  ) {
-    if (!roomId || roomId.trim() === '') {
-      throw new BadRequestException('Room ID is required');
-    }
-
-    // Create the message
-    const chatMessage: ChatMessage = {
-      id: this.chatService.generateMessageId(),
+      messageId: message.id,
       username: sendMessageDto.username,
-      message: sendMessageDto.message.trim(),
-      timestamp: new Date(),
-      room: roomId,
-    };
-
-    // Save the message
-    this.chatService.saveMessage(chatMessage);
-
-    // Broadcast the message to all users in the room via WebSocket
-    this.chatGateway.broadcastMessage(roomId, chatMessage);
-
-    // Notify the room that there's a new message (for clients to refresh)
-    this.chatGateway.notifyNewMessage(roomId, {
-      messageId: chatMessage.id,
-      username: chatMessage.username,
-      timestamp: chatMessage.timestamp,
+      timestamp: message.timestamp,
     });
 
     return {
       success: true,
-      message: chatMessage,
+      message: message,
     };
   }
+
+  // Legacy endpoint - removed for security
 
   @Get('guilds/:guildId/channels/:channelId/users')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
   async getChannelUsers(
     @Param('guildId') guildId: string,
-    @Param('channelId') channelId: string
+    @Param('channelId') channelId: string,
+    @Request() req: any
   ) {
-    if (!guildId || guildId.trim() === '') {
-      throw new BadRequestException('Guild ID is required');
-    }
-    if (!channelId || channelId.trim() === '') {
-      throw new BadRequestException('Channel ID is required');
-    }
-
-    const guild = this.chatService.getGuild(guildId);
-    if (!guild) {
-      throw new NotFoundException('Guild not found');
-    }
-
-    const channel = this.chatService.getChannel(channelId);
-    if (!channel || channel.guildId !== guildId) {
-      throw new NotFoundException('Channel not found in this guild');
-    }
-
+    const userId = req.user.id;
+    
+    // Check access to channel
+    await this.chatService.getChannel(channelId, userId);
+    
     const users = this.chatService.getRoomUsers(channelId);
     return {
       guildId,
@@ -366,37 +265,23 @@ export class ChatController {
     };
   }
 
-  // Legacy endpoint for backward compatibility
-  @Get('chats/:roomId/users')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async getRoomUsers(@Param('roomId') roomId: string) {
-    if (!roomId || roomId.trim() === '') {
-      throw new BadRequestException('Room ID is required');
-    }
-
-    const users = this.chatService.getRoomUsers(roomId);
-    return {
-      roomId,
-      users,
-      count: users.length,
-    };
-  }
+  // Legacy endpoint - removed for security
 
   @Get('stats')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
-  async getGlobalStats() {
-    const rooms = this.chatService.getAllRooms();
-    const totalUsers = this.chatService.getActiveUsersCount();
+  async getGlobalStats(@Request() req: any) {
+    const userId = req.user.id;
+    const guilds = await this.chatService.getUserGuilds(userId);
+    const activeUsers = this.chatService.getActiveUsersCount();
 
     return {
-      totalRooms: rooms.length,
-      totalActiveUsers: totalUsers,
-      rooms: rooms.map(room => ({
-        id: room,
-        name: room,
-        ...this.chatService.getRoomStats(room),
+      totalGuilds: guilds.length,
+      activeUsers,
+      guilds: guilds.map(guild => ({
+        id: guild.id,
+        name: guild.name,
+        channelCount: guild.channels.length,
       })),
     };
   }

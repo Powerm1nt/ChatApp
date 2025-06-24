@@ -1,17 +1,21 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@mikro-orm/nestjs';
+import { EntityRepository } from '@mikro-orm/core';
 import * as bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
-import { User, JwtPayload, AuthResponse } from './auth.config';
+import { User } from '../entities';
+import { JwtPayload, AuthResponse } from './auth.config';
 
 @Injectable()
 export class AuthService {
-  private users: Map<string, User> = new Map();
-
-  constructor(private jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    @InjectRepository(User)
+    private userRepository: EntityRepository<User>,
+  ) {}
 
   async validateUser(email: string, password: string): Promise<Omit<User, 'password'> | null> {
-    const user = Array.from(this.users.values()).find(u => u.email === email);
+    const user = await this.userRepository.findOne({ email });
     if (user && await bcrypt.compare(password, user.password)) {
       const { password: _, ...result } = user;
       return result;
@@ -22,7 +26,7 @@ export class AuthService {
   async validateToken(token: string): Promise<Omit<User, 'password'> | null> {
     try {
       const payload = this.jwtService.verify<JwtPayload>(token);
-      const user = this.users.get(payload.sub);
+      const user = await this.userRepository.findOne({ id: payload.sub });
       if (user) {
         const { password: _, ...result } = user;
         return result;
@@ -47,24 +51,20 @@ export class AuthService {
 
   async signUp(email: string, password: string, username?: string): Promise<AuthResponse> {
     // Check if user already exists
-    const existingUser = Array.from(this.users.values()).find(u => u.email === email);
+    const existingUser = await this.userRepository.findOne({ email });
     if (existingUser) {
       throw new UnauthorizedException('User with this email already exists');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userId = uuidv4();
 
-    const user: User = {
-      id: userId,
-      email,
-      username: username || email.split('@')[0],
-      password: hashedPassword,
-      createdAt: new Date(),
-      isAnonymous: false,
-    };
+    const user = new User();
+    user.email = email;
+    user.username = username || email.split('@')[0];
+    user.password = hashedPassword;
+    user.isAnonymous = false;
 
-    this.users.set(userId, user);
+    await this.userRepository.persistAndFlush(user);
 
     const payload: JwtPayload = {
       sub: user.id,
@@ -104,19 +104,13 @@ export class AuthService {
   }
 
   async signInAnonymous(): Promise<AuthResponse> {
-    const userId = uuidv4();
-    const anonymousEmail = `anonymous_${userId}@temp.com`;
+    const user = new User();
+    user.email = `anonymous_${user.id}@temp.com`;
+    user.username = `Guest_${user.id.substring(0, 8)}`;
+    user.password = ''; // No password for anonymous users
+    user.isAnonymous = true;
 
-    const user: User = {
-      id: userId,
-      email: anonymousEmail,
-      username: `Guest_${userId.substring(0, 8)}`,
-      password: '', // No password for anonymous users
-      createdAt: new Date(),
-      isAnonymous: true,
-    };
-
-    this.users.set(userId, user);
+    await this.userRepository.persistAndFlush(user);
 
     const payload: JwtPayload = {
       sub: user.id,
@@ -135,7 +129,7 @@ export class AuthService {
   }
 
   async findUserById(id: string): Promise<Omit<User, 'password'> | null> {
-    const user = this.users.get(id);
+    const user = await this.userRepository.findOne({ id });
     if (user) {
       const { password: _, ...result } = user;
       return result;
@@ -144,8 +138,9 @@ export class AuthService {
   }
 
   // Get all users (for debugging purposes)
-  getAllUsers(): Omit<User, 'password'>[] {
-    return Array.from(this.users.values()).map(user => {
+  async getAllUsers(): Promise<Omit<User, 'password'>[]> {
+    const users = await this.userRepository.findAll();
+    return users.map(user => {
       const { password: _, ...result } = user;
       return result;
     });

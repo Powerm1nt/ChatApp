@@ -42,7 +42,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
-    this.chatService.removeUser(client.id);
+    this.chatService.removeSocketUser(client.id);
   }
 
   @SubscribeMessage('join-room')
@@ -62,7 +62,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
     // Join new room
     client.join(room);
-    this.chatService.addUser(client.id, username, room);
+    this.chatService.addSocketUser(client.id, username, room);
 
     // Notify room about new user
     client.to(room).emit('user-joined', {
@@ -95,7 +95,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { isTyping: boolean },
   ) {
-    const user = this.chatService.getUser(client.id);
+    const user = this.chatService.getSocketUser(client.id);
     if (!user) return;
 
     client.to(user.room).emit('user-typing', {

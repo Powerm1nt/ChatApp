@@ -1,4 +1,25 @@
 services:
+  # PostgreSQL Database for development
+  postgres:
+    image: postgres:17-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-chat-app}-postgres-dev
+    environment:
+      - POSTGRES_DB=${DB_NAME:-chatapp}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - chat-app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -16,8 +37,16 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - PORT=${BACKEND_PORT:-3001}
       - CORS_ORIGIN=${CORS_ORIGIN}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-chatapp}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
     networks:
       - chat-app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     # Enable debugging
     command: yarn start:debug
@@ -43,6 +72,9 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  postgres_dev_data:
 
 networks:
   chat-app-network:

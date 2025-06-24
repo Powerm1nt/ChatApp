@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@mikro-orm/nestjs';
+import { EntityRepository } from '@mikro-orm/core';
 import { ChatMessage } from './chat.gateway';
-import { v4 as uuidv4 } from 'uuid';
+import { User, Guild, Channel, UserGuild, Message, UserGuildRole } from '../entities';
 
-export interface User {
+export interface SocketUser {
   id: string;
   username: string;
   room: string;
@@ -10,240 +12,250 @@ export interface User {
   joinedAt: Date;
 }
 
-export interface Guild {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: Date;
-  channels: Channel[];
-}
-
-export interface Channel {
-  id: string;
-  name: string;
-  description?: string;
-  guildId: string;
-  createdAt: Date;
-}
-
 @Injectable()
 export class ChatService {
-  private users: Map<string, User> = new Map();
-  private messages: Map<string, ChatMessage[]> = new Map(); // room -> messages
-  private rooms: Set<string> = new Set();
-  private guilds: Map<string, Guild> = new Map();
-  private channels: Map<string, Channel> = new Map(); // channelId -> channel
+  private socketUsers: Map<string, SocketUser> = new Map();
 
-  constructor() {
-    // Initialize with a default guild and some channels
-    this.initializeDefaultData();
-  }
+  constructor(
+    @InjectRepository(User)
+    private userRepository: EntityRepository<User>,
+    @InjectRepository(Guild)
+    private guildRepository: EntityRepository<Guild>,
+    @InjectRepository(Channel)
+    private channelRepository: EntityRepository<Channel>,
+    @InjectRepository(UserGuild)
+    private userGuildRepository: EntityRepository<UserGuild>,
+    @InjectRepository(Message)
+    private messageRepository: EntityRepository<Message>,
+  ) {}
 
-  private initializeDefaultData() {
-    const defaultGuildId = this.generateLittleUuid();
-    const defaultGuild: Guild = {
-      id: defaultGuildId,
-      name: 'Default Workspace',
-      description: 'Default workspace for chat',
-      createdAt: new Date(),
-      channels: []
-    };
-
-    const defaultChannels: Channel[] = [
-      {
-        id: this.generateLittleUuid(),
-        name: 'general',
-        description: 'General discussion',
-        guildId: defaultGuildId,
-        createdAt: new Date()
-      },
-      {
-        id: this.generateLittleUuid(),
-        name: 'random',
-        description: 'Random chat',
-        guildId: defaultGuildId,
-        createdAt: new Date()
-      },
-      {
-        id: this.generateLittleUuid(),
-        name: 'tech',
-        description: 'Tech discussions',
-        guildId: defaultGuildId,
-        createdAt: new Date()
-      }
-    ];
-
-    defaultGuild.channels = defaultChannels;
-    this.guilds.set(defaultGuild.id, defaultGuild);
-    
-    defaultChannels.forEach(channel => {
-      this.channels.set(channel.id, channel);
-      this.rooms.add(channel.id); // Keep backward compatibility
+  // Check if user has access to guild
+  async checkUserGuildAccess(userId: string, guildId: string): Promise<boolean> {
+    const userGuild = await this.userGuildRepository.findOne({
+      user: userId,
+      guild: guildId,
     });
+    return !!userGuild;
   }
 
-  addUser(socketId: string, username: string, room: string, guildId?: string): User {
-    // If no guildId provided, try to find the channel's guild
-    let userGuildId = guildId;
-    if (!userGuildId) {
-      const channel = this.channels.get(room);
-      userGuildId = channel?.guildId || Array.from(this.guilds.keys())[0];
-    }
+  // Check if user has access to channel (must be member of the guild)
+  async checkUserChannelAccess(userId: string, channelId: string): Promise<boolean> {
+    const channel = await this.channelRepository.findOne(
+      { id: channelId },
+      { populate: ['guild'] }
+    );
+    if (!channel) return false;
 
-    const user: User = {
+    return this.checkUserGuildAccess(userId, channel.guild.id);
+  }
+
+  addSocketUser(socketId: string, username: string, room: string, guildId?: string): SocketUser {
+    const user: SocketUser = {
       id: socketId,
       username,
       room,
-      guildId: userGuildId,
+      guildId: guildId || '',
       joinedAt: new Date(),
     };
 
-    this.users.set(socketId, user);
-    this.rooms.add(room);
-
-    // Initialize room messages if not exists
-    if (!this.messages.has(room)) {
-      this.messages.set(room, []);
-    }
-
+    this.socketUsers.set(socketId, user);
     return user;
   }
 
-  removeUser(socketId: string): User | null {
-    const user = this.users.get(socketId);
+  removeSocketUser(socketId: string): SocketUser | null {
+    const user = this.socketUsers.get(socketId);
     if (user) {
-      this.users.delete(socketId);
+      this.socketUsers.delete(socketId);
       return user;
     }
     return null;
   }
 
-  getUser(socketId: string): User | null {
-    return this.users.get(socketId) || null;
+  getSocketUser(socketId: string): SocketUser | null {
+    return this.socketUsers.get(socketId) || null;
   }
 
-  getRoomUsers(room: string): User[] {
-    return Array.from(this.users.values()).filter(user => user.room === room);
+  getRoomUsers(room: string): SocketUser[] {
+    return Array.from(this.socketUsers.values()).filter(user => user.room === room);
   }
 
-  getAllRooms(): string[] {
-    return Array.from(this.rooms);
-  }
-
-  saveMessage(message: ChatMessage): void {
-    const roomMessages = this.messages.get(message.room) || [];
-    roomMessages.push(message);
-    this.messages.set(message.room, roomMessages);
-
-    // Keep only last 100 messages per room to prevent memory issues
-    if (roomMessages.length > 100) {
-      roomMessages.splice(0, roomMessages.length - 100);
+  async saveMessage(content: string, authorId: string, channelId: string): Promise<Message> {
+    // Check if user has access to the channel
+    const hasAccess = await this.checkUserChannelAccess(authorId, channelId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this channel');
     }
+
+    const author = await this.userRepository.findOne({ id: authorId });
+    const channel = await this.channelRepository.findOne({ id: channelId });
+
+    if (!author || !channel) {
+      throw new NotFoundException('Author or channel not found');
+    }
+
+    const message = new Message();
+    message.content = content;
+    message.author = author;
+    message.channel = channel;
+
+    await this.messageRepository.persistAndFlush(message);
+    return message;
   }
 
-  getRoomMessages(room: string): ChatMessage[] {
-    return this.messages.get(room) || [];
+  async getChannelMessages(channelId: string, userId: string): Promise<Message[]> {
+    // Check if user has access to the channel
+    const hasAccess = await this.checkUserChannelAccess(userId, channelId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this channel');
+    }
+
+    return this.messageRepository.find(
+      { channel: channelId },
+      { 
+        populate: ['author'],
+        orderBy: { timestamp: 'ASC' },
+        limit: 100
+      }
+    );
   }
 
-  generateMessageId(): string {
-    return uuidv4();
-  }
-
-  // Generate little UUID level 1 (first part of UUID)
-  private generateLittleUuid(): string {
-    return uuidv4().split('-')[0];
-  }
-
-  // Get room statistics
-  getRoomStats(room: string): {
+  // Get channel statistics
+  async getChannelStats(channelId: string, userId: string): Promise<{
     userCount: number;
     messageCount: number;
     users: string[];
-  } {
-    const users = this.getRoomUsers(room);
-    const messages = this.getRoomMessages(room);
+  }> {
+    // Check if user has access to the channel
+    const hasAccess = await this.checkUserChannelAccess(userId, channelId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this channel');
+    }
+
+    const socketUsers = this.getRoomUsers(channelId);
+    const messageCount = await this.messageRepository.count({ channel: channelId });
 
     return {
-      userCount: users.length,
-      messageCount: messages.length,
-      users: users.map(user => user.username),
+      userCount: socketUsers.length,
+      messageCount,
+      users: socketUsers.map(user => user.username),
     };
   }
 
-  // Get all active users count
+  // Get all active socket users count
   getActiveUsersCount(): number {
-    return this.users.size;
-  }
-
-  // Clean up old messages (can be called periodically)
-  cleanupOldMessages(hoursOld: number = 24): void {
-    const cutoffTime = new Date(Date.now() - hoursOld * 60 * 60 * 1000);
-
-    this.messages.forEach((messages, room) => {
-      const filteredMessages = messages.filter(
-        message => new Date(message.timestamp) > cutoffTime
-      );
-      this.messages.set(room, filteredMessages);
-    });
+    return this.socketUsers.size;
   }
 
   // Guild management methods
-  getAllGuilds(): Guild[] {
-    return Array.from(this.guilds.values());
+  async getUserGuilds(userId: string): Promise<Guild[]> {
+    const userGuilds = await this.userGuildRepository.find(
+      { user: userId },
+      { populate: ['guild', 'guild.channels'] }
+    );
+    return userGuilds.map(ug => ug.guild);
   }
 
-  getGuild(guildId: string): Guild | null {
-    return this.guilds.get(guildId) || null;
-  }
+  async getGuild(guildId: string, userId: string): Promise<Guild> {
+    const hasAccess = await this.checkUserGuildAccess(userId, guildId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this guild');
+    }
 
-  createGuild(name: string, description?: string): Guild {
-    const guild: Guild = {
-      id: this.generateLittleUuid(),
-      name,
-      description,
-      createdAt: new Date(),
-      channels: []
-    };
+    const guild = await this.guildRepository.findOne(
+      { id: guildId },
+      { populate: ['channels'] }
+    );
+    
+    if (!guild) {
+      throw new NotFoundException('Guild not found');
+    }
 
-    this.guilds.set(guild.id, guild);
     return guild;
   }
 
+  async createGuild(name: string, ownerId: string, description?: string): Promise<Guild> {
+    const guild = new Guild();
+    guild.name = name;
+    guild.description = description;
+
+    await this.guildRepository.persistAndFlush(guild);
+
+    // Add the creator as owner
+    const userGuild = new UserGuild();
+    userGuild.user = await this.userRepository.findOneOrFail({ id: ownerId });
+    userGuild.guild = guild;
+    userGuild.role = UserGuildRole.OWNER;
+
+    await this.userGuildRepository.persistAndFlush(userGuild);
+
+    return guild;
+  }
+
+  async joinGuild(guildId: string, userId: string): Promise<UserGuild> {
+    // Check if user is already a member
+    const existingMembership = await this.userGuildRepository.findOne({
+      user: userId,
+      guild: guildId,
+    });
+
+    if (existingMembership) {
+      throw new ForbiddenException('User is already a member of this guild');
+    }
+
+    const user = await this.userRepository.findOneOrFail({ id: userId });
+    const guild = await this.guildRepository.findOneOrFail({ id: guildId });
+
+    const userGuild = new UserGuild();
+    userGuild.user = user;
+    userGuild.guild = guild;
+    userGuild.role = UserGuildRole.MEMBER;
+
+    await this.userGuildRepository.persistAndFlush(userGuild);
+    return userGuild;
+  }
+
   // Channel management methods
-  getGuildChannels(guildId: string): Channel[] {
-    const guild = this.guilds.get(guildId);
-    return guild ? guild.channels : [];
+  async getGuildChannels(guildId: string, userId: string): Promise<Channel[]> {
+    const hasAccess = await this.checkUserGuildAccess(userId, guildId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this guild');
+    }
+
+    return this.channelRepository.find({ guild: guildId });
   }
 
-  getChannel(channelId: string): Channel | null {
-    return this.channels.get(channelId) || null;
-  }
+  async getChannel(channelId: string, userId: string): Promise<Channel> {
+    const hasAccess = await this.checkUserChannelAccess(userId, channelId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this channel');
+    }
 
-  createChannel(guildId: string, name: string, description?: string): Channel | null {
-    const guild = this.guilds.get(guildId);
-    if (!guild) return null;
+    const channel = await this.channelRepository.findOne(
+      { id: channelId },
+      { populate: ['guild'] }
+    );
 
-    const channel: Channel = {
-      id: this.generateLittleUuid(),
-      name,
-      description,
-      guildId,
-      createdAt: new Date()
-    };
-
-    this.channels.set(channel.id, channel);
-    guild.channels.push(channel);
-    this.rooms.add(channel.id); // Keep backward compatibility
+    if (!channel) {
+      throw new NotFoundException('Channel not found');
+    }
 
     return channel;
   }
 
-  // Get channel statistics
-  getChannelStats(channelId: string): {
-    userCount: number;
-    messageCount: number;
-    users: string[];
-  } {
-    return this.getRoomStats(channelId); // Reuse existing room stats logic
+  async createChannel(guildId: string, name: string, userId: string, description?: string): Promise<Channel> {
+    const hasAccess = await this.checkUserGuildAccess(userId, guildId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this guild');
+    }
+
+    const guild = await this.guildRepository.findOneOrFail({ id: guildId });
+
+    const channel = new Channel();
+    channel.name = name;
+    channel.description = description;
+    channel.guild = guild;
+
+    await this.channelRepository.persistAndFlush(channel);
+    return channel;
   }
 }
