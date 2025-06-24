@@ -15,7 +15,8 @@ export function ServiceStatusIndicator() {
   useEffect(() => {
     // Fetch initial status
     fetchServiceStatus();
-  }, [fetchServiceStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!serviceStatus) {
     return (

@@ -249,7 +249,7 @@ export const useGuildStore = create<GuildState>()(
         },
       });
       
-      console.log('Fetch channels response:', response.data);
+      console.log('Fetch channels response: received', response.data?.channels?.length || response.data?.length || 0, 'channels');
       
       let channels: Channel[] = [];
       if (response.data && response.data.channels) {

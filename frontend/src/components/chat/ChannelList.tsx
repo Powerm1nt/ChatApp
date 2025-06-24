@@ -40,7 +40,7 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
       console.log(`Fetching channels for guild: ${guildId}`);
       fetchChannels(guildId).catch(console.error);
     }
-  }, [guildId, currentGuild?.id, fetchChannels]);
+  }, [guildId, currentGuild?.id]);
 
   if (!currentGuild) {
     return (

@@ -38,7 +38,7 @@ export class ChatService {
       user: userId,
       guild: guildId,
     });
-    console.log(`Guild access result:`, userGuild ? 'GRANTED' : 'DENIED', userGuild);
+    console.log(`Guild access result:`, userGuild ? 'GRANTED' : 'DENIED');
     return !!userGuild;
   }
 
