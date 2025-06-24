@@ -15,6 +15,9 @@ interface ChatUser {
   username: string;
   status: 'online' | 'away' | 'offline';
   role?: 'owner' | 'admin' | 'member';
+  room?: string;
+  guildId?: string;
+  joinedAt?: Date;
 }
 
 export default function UserListPanel({ chatType, chatId, channelId }: UserListPanelProps) {
@@ -88,11 +91,9 @@ export default function UserListPanel({ chatType, chatId, channelId }: UserListP
     socket.on('room-users', handleRoomUsers);
     socket.on('user-joined', handleUserJoined);
     socket.on('user-left', handleUserLeft);
-    socket.on('user-status-update', handleUserStatusUpdate);
-
-    // Request users for the current room
-    const roomId = chatType === 'guild' ? `${chatId}-${channelId}` : chatId;
-    socket.emit('get-room-users', { roomId, chatType });
+    socket.on('user-status-update', handleUserStatusUpdate);      // Request users for the current room
+      const roomId = chatType === 'guild' ? channelId : chatId;
+      socket.emit('get-room-users', { roomId, chatType });
 
     return () => {
       socket.off('room-users', handleRoomUsers);

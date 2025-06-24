@@ -2,6 +2,8 @@ import {
   Controller, 
   Get, 
   Post, 
+  Put,
+  Delete,
   Body, 
   Param, 
   UseGuards, 
@@ -15,7 +17,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ChatService } from './chat.service';
 import { ChatGateway, ChatMessage } from './chat.gateway';
-import { IsString, IsNotEmpty, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, MaxLength, IsOptional } from 'class-validator';
 
 class SendMessageDto {
   @IsString()
@@ -47,6 +49,7 @@ class CreateGuildDto {
   @MaxLength(50)
   name: string;
 
+  @IsOptional()
   @IsString()
   description?: string;
 }
@@ -58,6 +61,20 @@ class CreateChannelDto {
   @MaxLength(50)
   name: string;
 
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
+class UpdateChannelDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(50)
+  name?: string;
+
+  @IsOptional()
   @IsString()
   description?: string;
 }
@@ -167,7 +184,50 @@ export class ChatController {
   ) {
     const userId = req.user.id;
     const channel = await this.chatService.createChannel(guildId, createChannelDto.name, userId, createChannelDto.description);
+    
+    // Broadcast channel creation to all guild members
+    this.chatGateway.broadcastChannelCreated(guildId, channel);
+    
     return channel;
+  }
+
+  @Put('guilds/:guildId/channels/:channelId')
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(HttpStatus.OK)
+  async updateChannel(
+    @Param('guildId') guildId: string,
+    @Param('channelId') channelId: string,
+    @Body(ValidationPipe) updateChannelDto: UpdateChannelDto,
+    @Request() req: any
+  ) {
+    const userId = req.user.id;
+    const updatedChannel = await this.chatService.updateChannel(guildId, channelId, userId, updateChannelDto);
+    
+    // Broadcast channel update to all guild members
+    this.chatGateway.broadcastChannelUpdated(guildId, updatedChannel);
+    
+    return updatedChannel;
+  }
+
+  @Delete('guilds/:guildId/channels/:channelId')
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteChannel(
+    @Param('guildId') guildId: string,
+    @Param('channelId') channelId: string,
+    @Request() req: any
+  ) {
+    const userId = req.user.id;
+    
+    // Get channel info before deletion for broadcasting
+    const channel = await this.chatService.getChannel(channelId, userId);
+    
+    await this.chatService.deleteChannel(guildId, channelId, userId);
+    
+    // Broadcast channel deletion to all guild members
+    this.chatGateway.broadcastChannelDeleted(guildId, channelId, channel.name);
+    
+    return { success: true };
   }
 
   // Legacy endpoint - removed for security
@@ -214,16 +274,17 @@ export class ChatController {
       sendMessageDto.message.trim(),
       userId,
       channelId
-    );
-
-    // Create chat message for WebSocket broadcast
-    const chatMessage: ChatMessage = {
-      id: message.id,
-      username: sendMessageDto.username,
-      message: message.content,
-      timestamp: message.timestamp,
-      room: channelId,
-    };
+    );      // Create chat message for WebSocket broadcast
+      const chatMessage: ChatMessage = {
+        id: message.id,
+        content: message.content,
+        author: {
+          id: userId,
+          username: sendMessageDto.username,
+        },
+        timestamp: message.timestamp,
+        room: channelId,
+      };
 
     // Broadcast the message to all users in the channel via WebSocket
     this.chatGateway.broadcastMessage(channelId, chatMessage);
@@ -283,6 +344,80 @@ export class ChatController {
         name: guild.name,
         channelCount: guild.channels.length,
       })),
+    };
+  }
+
+  // Guild status endpoint
+  @Get('guilds/:guildId/status')
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(HttpStatus.OK)
+  async getGuildStatus(
+    @Param('guildId') guildId: string,
+    @Request() req: any
+  ) {
+    const userId = req.user.id;
+    const guild = await this.chatService.getGuild(guildId, userId);
+    const activeUsers = this.chatService.getGuildActiveUsers(guildId);
+    const channelCount = guild.channels.length;
+    const memberCount = await this.chatService.getGuildMemberCount(guildId);
+
+    return {
+      guildId,
+      name: guild.name,
+      status: 'active',
+      timestamp: new Date().toISOString(),
+      stats: {
+        memberCount,
+        channelCount,
+        activeUsers: activeUsers.length,
+        createdAt: guild.createdAt,
+      },
+      health: {
+        database: 'connected',
+        channels: channelCount > 0 ? 'available' : 'empty',
+        members: memberCount > 0 ? 'active' : 'inactive'
+      }
+    };
+  }
+
+  // User status endpoint
+  @Get('users/:userId/status')
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(HttpStatus.OK)
+  async getUserStatus(
+    @Param('userId') targetUserId: string,
+    @Request() req: any
+  ) {
+    const requestingUserId = req.user.id;
+    
+    // Users can only view their own status or status of users in their guilds
+    const canViewStatus = requestingUserId === targetUserId || 
+      await this.chatService.canUserViewUserStatus(requestingUserId, targetUserId);
+    
+    if (!canViewStatus) {
+      throw new BadRequestException('You cannot view this user\'s status');
+    }
+
+    const user = await this.chatService.getUserById(targetUserId);
+    const userGuilds = await this.chatService.getUserGuilds(targetUserId);
+    const isOnline = this.chatService.isUserOnline(targetUserId);
+    const lastActivity = this.chatService.getUserLastActivity(targetUserId);
+
+    return {
+      userId: targetUserId,
+      username: user.username || user.email,
+      status: isOnline ? 'online' : 'offline',
+      timestamp: new Date().toISOString(),
+      stats: {
+        guildCount: userGuilds.length,
+        joinedAt: user.createdAt,
+        lastActivity: lastActivity || user.createdAt,
+      },
+      health: {
+        connection: isOnline ? 'connected' : 'disconnected',
+        guilds: userGuilds.length > 0 ? 'member' : 'no-guilds',
+        account: user.isAnonymous ? 'anonymous' : 'registered'
+      }
     };
   }
 }

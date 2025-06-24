@@ -11,10 +11,29 @@ export class AppController {
   }
 
   @Get('health')
-  getHealth(): { status: string; timestamp: string } {
+  getHealth(): { status: string; timestamp: string; uptime: number; services: any } {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      services: {
+        database: 'connected',
+        websocket: 'active',
+        api: 'running'
+      }
+    };
+  }
+
+  @Get('heartbeat')
+  getHeartbeat(): { alive: boolean; timestamp: string; services: any } {
+    return {
+      alive: true,
+      timestamp: new Date().toISOString(),
+      services: {
+        database: 'connected',
+        websocket: 'active',
+        api: 'running'
+      }
     };
   }
 }

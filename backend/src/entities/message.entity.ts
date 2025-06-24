@@ -6,7 +6,7 @@ import { Channel } from './channel.entity';
 @Entity()
 export class Message {
   @PrimaryKey()
-  id: string = uuidv4();
+  id: string = uuidv4().split('-')[0];
 
   @Property()
   content!: string;

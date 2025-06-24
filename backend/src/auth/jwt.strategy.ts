@@ -18,6 +18,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     console.log('JWT Strategy validate payload:', payload);
     const user = await this.authService.findUserById(payload.sub);
     console.log('JWT Strategy found user:', user);
+    if (!user) {
+      console.error('JWT Strategy: User not found for ID:', payload.sub);
+      return null;
+    }
     return user;
   }
 }

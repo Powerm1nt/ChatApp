@@ -4,12 +4,14 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import { useEffect } from "react";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import SettingsPage from "./pages/SettingsPage";
 import ChatView from "./components/chat/ChatView";
 import { AppLayout } from "./components/layout/AppLayout";
 import { useAuthStore } from "./stores/authStore";
+import { useSocketStore } from "./stores/socketStore";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuthStore();
@@ -30,6 +32,25 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  const { user } = useAuthStore();
+  const { initializeSocket, disconnectSocket } = useSocketStore();
+
+  // Initialize socket when user is authenticated
+  useEffect(() => {
+    if (user) {
+      console.log('User authenticated, initializing socket connection...');
+      initializeSocket();
+    } else {
+      console.log('User not authenticated, disconnecting socket...');
+      disconnectSocket();
+    }
+
+    // Cleanup socket on unmount
+    return () => {
+      disconnectSocket();
+    };
+  }, [user, initializeSocket, disconnectSocket]);
+
   return (
     <Router>
       <Routes>

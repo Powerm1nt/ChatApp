@@ -10,7 +10,7 @@ import { DirectMessage } from './direct-message.entity';
 @Entity()
 export class User {
   @PrimaryKey()
-  id: string = uuidv4();
+  id: string = uuidv4().split('-')[0];
 
   @Property({ unique: true })
   email!: string;

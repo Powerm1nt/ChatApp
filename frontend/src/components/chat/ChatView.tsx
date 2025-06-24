@@ -4,6 +4,7 @@ import MessagePanel from './MessagePanel';
 import UserListPanel from './UserListPanel';
 import { ChannelList } from './ChannelList';
 import { useSocketStore } from '../../stores/socketStore';
+import { useGuildStore } from '../../stores/guildStore';
 
 interface ChatViewProps {
   showUserList?: boolean;
@@ -20,45 +21,52 @@ export default function ChatView({
   const navigate = useNavigate();
   const { guild_id, channel_id, user_id, group_id } = params;
   const { guilds, channels, fetchChannels } = useSocketStore();
+  const { getChannelById } = useGuildStore();
 
-  // Get the full UUID from the short ID
-  const getFullId = (shortId: string, type: 'guild' | 'channel') => {
-    if (type === 'guild') {
-      const guild = guilds.find(g => g.id.startsWith(shortId));
-      return guild?.id || shortId;
-    } else {
-      const channel = channels.find(c => c.id.startsWith(shortId));
-      return channel?.id || shortId;
-    }
+  // Since we're now using short UUIDs everywhere, just return the short ID
+  const getShortId = (shortId: string) => {
+    return shortId;
   };
 
   // Determine chat type and context
   const chatType = guild_id ? 'guild' : user_id ? 'direct' : group_id ? 'group' : 'unknown';
-  const fullGuildId = guild_id ? getFullId(guild_id, 'guild') : '';
-  const fullChannelId = channel_id ? getFullId(channel_id, 'channel') : '';
-  const chatId = fullGuildId || user_id || group_id || '';
+  const guildId = guild_id || '';
+  const channelId = channel_id || '';
+  const chatId = guildId || user_id || group_id || '';
 
   // Auto-navigate to first channel if we're on a guild without a channel
   useEffect(() => {
-    if (guild_id && !channel_id && showChannelList) {
-      fetchChannels(fullGuildId).then(() => {
-        const guildChannels = channels.filter(c => c.guildId === fullGuildId);
-        if (guildChannels.length > 0) {
-          const firstChannel = guildChannels[0];
-          const shortChannelId = firstChannel.id.split('-')[0];
-          navigate(`/guild/${guild_id}/${shortChannelId}`, { replace: true });
-        }
-      });
+    if (guild_id && !channel_id && showChannelList && guildId) {
+      // First check if we already have channels for this guild
+      const existingChannels = channels.filter(c => c.guildId === guildId);
+      
+      if (existingChannels.length > 0) {
+        const firstChannel = existingChannels[0];
+        navigate(`/guild/${guild_id}/${firstChannel.id}`, { replace: true });
+      } else {
+        // Fetch channels if we don't have them
+        fetchChannels(guildId).then(() => {
+          const guildChannels = channels.filter(c => c.guildId === guildId);
+          if (guildChannels.length > 0) {
+            const firstChannel = guildChannels[0];
+            navigate(`/guild/${guild_id}/${firstChannel.id}`, { replace: true });
+          }
+        }).catch((error) => {
+          console.error('Failed to fetch channels in ChatView:', error);
+          // If we can't fetch channels, redirect to home
+          navigate('/me', { replace: true });
+        });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guild_id, channel_id, fullGuildId, showChannelList]);
+  }, [guild_id, channel_id, guildId, showChannelList, channels]);
 
   return (
     <div className="flex h-screen bg-background">
       {/* Channel List Panel - Left */}
       {showChannelList && guild_id && (
         <div className="flex-shrink-0">
-          <ChannelList guildId={fullGuildId} />
+          <ChannelList guildId={guildId} />
         </div>
       )}
 
@@ -68,7 +76,7 @@ export default function ChatView({
           <MessagePanel 
             chatType={chatType}
             chatId={chatId}
-            channelId={fullChannelId}
+            channelId={channelId}
           />
         </div>
       )}
@@ -79,7 +87,7 @@ export default function ChatView({
           <UserListPanel 
             chatType={chatType}
             chatId={chatId}
-            channelId={fullChannelId}
+            channelId={channelId}
           />
         </div>
       )}

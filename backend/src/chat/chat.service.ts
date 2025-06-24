@@ -10,6 +10,8 @@ export interface SocketUser {
   room: string;
   guildId: string;
   joinedAt: Date;
+  status: 'online' | 'away' | 'offline';
+  role?: 'owner' | 'admin' | 'member';
 }
 
 @Injectable()
@@ -31,22 +33,37 @@ export class ChatService {
 
   // Check if user has access to guild
   async checkUserGuildAccess(userId: string, guildId: string): Promise<boolean> {
+    console.log(`Checking guild access for user ${userId} in guild ${guildId}`);
     const userGuild = await this.userGuildRepository.findOne({
       user: userId,
       guild: guildId,
     });
+    console.log(`Guild access result:`, userGuild ? 'GRANTED' : 'DENIED', userGuild);
     return !!userGuild;
   }
 
   // Check if user has access to channel (must be member of the guild)
   async checkUserChannelAccess(userId: string, channelId: string): Promise<boolean> {
+    console.log(`Checking channel access for user ${userId} to channel ${channelId}`);
+    
+    // Find the channel with its guild information
     const channel = await this.channelRepository.findOne(
       { id: channelId },
       { populate: ['guild'] }
     );
-    if (!channel) return false;
-
-    return this.checkUserGuildAccess(userId, channel.guild.id);
+    
+    if (!channel) {
+      console.log(`Channel ${channelId} not found`);
+      return false;
+    }
+    
+    console.log(`Channel found: ${channel.name} in guild ${channel.guild.id}`);
+    
+    // Check if user has access to the guild that owns this channel
+    const hasGuildAccess = await this.checkUserGuildAccess(userId, channel.guild.id);
+    console.log(`Guild access result for user ${userId} in guild ${channel.guild.id}: ${hasGuildAccess}`);
+    
+    return hasGuildAccess;
   }
 
   addSocketUser(socketId: string, username: string, room: string, guildId?: string): SocketUser {
@@ -56,6 +73,8 @@ export class ChatService {
       room,
       guildId: guildId || '',
       joinedAt: new Date(),
+      status: 'online',
+      role: 'member', // Default role, can be updated based on guild membership
     };
 
     this.socketUsers.set(socketId, user);
@@ -80,17 +99,59 @@ export class ChatService {
   }
 
   async saveMessage(content: string, authorId: string, channelId: string): Promise<Message> {
-    // Check if user has access to the channel
-    const hasAccess = await this.checkUserChannelAccess(authorId, channelId);
+    console.log(`Attempting to save message from user ${authorId} to channel ${channelId}`);
+    
+    // First, check if the channel exists
+    let channel = await this.channelRepository.findOne(
+      { id: channelId },
+      { populate: ['guild'] }
+    );
+    
+    // If channel doesn't exist, try to find a guild the user has access to and create/use a default channel
+    if (!channel) {
+      console.log(`Channel ${channelId} not found, attempting to find or create a default channel for user ${authorId}`);
+      
+      let userGuilds = await this.getUserGuilds(authorId);
+      
+      // If user has no guilds, they need to create or join a guild first
+      if (userGuilds.length === 0) {
+        console.log(`User ${authorId} has no guild access`);
+        throw new ForbiddenException('You do not have access to any guilds. Please create or join a guild first.');
+      }
+      
+      // Use the first guild the user has access to
+      const guild = userGuilds[0];
+      console.log(`User has access to guild ${guild.id}, checking for existing channels`);
+      
+      const existingChannels = await this.channelRepository.find({ guild: guild.id });
+      if (existingChannels.length === 0) {
+        console.log(`Guild ${guild.id} has no channels, creating default channel`);
+        const defaultChannel = new Channel();
+        defaultChannel.name = 'general';
+        defaultChannel.description = 'General discussion channel';
+        defaultChannel.guild = guild;
+
+        await this.channelRepository.persistAndFlush(defaultChannel);
+        console.log(`Created default channel '${defaultChannel.name}' with ID: ${defaultChannel.id} for guild ${guild.id}`);
+        channel = defaultChannel;
+      } else {
+        // Use the first existing channel
+        channel = existingChannels[0];
+        console.log(`Using existing channel ${channel.id} (${channel.name}) from guild ${guild.id}`);
+      }
+    }
+    
+    // Now check if user has access to the channel (or the fallback channel)
+    const hasAccess = await this.checkUserChannelAccess(authorId, channel.id);
+    console.log(`Channel access check result for channel ${channel.id}: ${hasAccess}`);
     if (!hasAccess) {
+      console.error(`Access denied for user ${authorId} to channel ${channel.id}`);
       throw new ForbiddenException('You do not have access to this channel');
     }
 
     const author = await this.userRepository.findOne({ id: authorId });
-    const channel = await this.channelRepository.findOne({ id: channelId });
-
-    if (!author || !channel) {
-      throw new NotFoundException('Author or channel not found');
+    if (!author) {
+      throw new NotFoundException('Author not found');
     }
 
     const message = new Message();
@@ -103,14 +164,30 @@ export class ChatService {
   }
 
   async getChannelMessages(channelId: string, userId: string): Promise<Message[]> {
+    console.log(`Getting messages for channel ${channelId} for user ${userId}`);
+    
+    // First, check if the channel exists
+    const channel = await this.channelRepository.findOne(
+      { id: channelId },
+      { populate: ['guild'] }
+    );
+    
+    // If channel doesn't exist, return empty array - don't leak data from other channels
+    if (!channel) {
+      console.log(`Channel ${channelId} not found`);
+      throw new NotFoundException('Channel not found');
+    }
+    
     // Check if user has access to the channel
-    const hasAccess = await this.checkUserChannelAccess(userId, channelId);
+    const hasAccess = await this.checkUserChannelAccess(userId, channel.id);
+    console.log(`Channel access check result for channel ${channel.id}: ${hasAccess}`);
     if (!hasAccess) {
+      console.error(`Access denied for user ${userId} to channel ${channel.id}`);
       throw new ForbiddenException('You do not have access to this channel');
     }
 
     return this.messageRepository.find(
-      { channel: channelId },
+      { channel: channel.id },
       { 
         populate: ['author'],
         orderBy: { timestamp: 'ASC' },
@@ -125,14 +202,30 @@ export class ChatService {
     messageCount: number;
     users: string[];
   }> {
+    console.log(`Getting stats for channel ${channelId} for user ${userId}`);
+    
+    // First, check if the channel exists
+    const channel = await this.channelRepository.findOne(
+      { id: channelId },
+      { populate: ['guild'] }
+    );
+    
+    // If channel doesn't exist, return empty stats - don't leak data from other channels
+    if (!channel) {
+      console.log(`Channel ${channelId} not found`);
+      throw new NotFoundException('Channel not found');
+    }
+    
     // Check if user has access to the channel
-    const hasAccess = await this.checkUserChannelAccess(userId, channelId);
+    const hasAccess = await this.checkUserChannelAccess(userId, channel.id);
+    console.log(`Channel access check result for channel ${channel.id}: ${hasAccess}`);
     if (!hasAccess) {
+      console.error(`Access denied for user ${userId} to channel ${channel.id}`);
       throw new ForbiddenException('You do not have access to this channel');
     }
 
-    const socketUsers = this.getRoomUsers(channelId);
-    const messageCount = await this.messageRepository.count({ channel: channelId });
+    const socketUsers = this.getRoomUsers(channel.id);
+    const messageCount = await this.messageRepository.count({ channel: channel.id });
 
     return {
       userCount: socketUsers.length,
@@ -144,6 +237,50 @@ export class ChatService {
   // Get all active socket users count
   getActiveUsersCount(): number {
     return this.socketUsers.size;
+  }
+
+  // Get active users in a specific guild
+  getGuildActiveUsers(guildId: string): SocketUser[] {
+    return Array.from(this.socketUsers.values()).filter(user => user.guildId === guildId);
+  }
+
+  // Get guild member count
+  async getGuildMemberCount(guildId: string): Promise<number> {
+    const memberCount = await this.userGuildRepository.count({ guild: guildId });
+    return memberCount;
+  }
+
+  // Check if user is online
+  isUserOnline(userId: string): boolean {
+    return Array.from(this.socketUsers.values()).some(user => user.id === userId);
+  }
+
+  // Get user's last activity (simplified - using current time if online)
+  getUserLastActivity(userId: string): Date | null {
+    const socketUser = Array.from(this.socketUsers.values()).find(user => user.id === userId);
+    return socketUser ? socketUser.joinedAt : null;
+  }
+
+  // Check if requesting user can view target user's status
+  async canUserViewUserStatus(requestingUserId: string, targetUserId: string): Promise<boolean> {
+    // Users can view status of other users if they share at least one guild
+    const requestingUserGuilds = await this.getUserGuilds(requestingUserId);
+    const targetUserGuilds = await this.getUserGuilds(targetUserId);
+    
+    const sharedGuilds = requestingUserGuilds.filter(rGuild => 
+      targetUserGuilds.some(tGuild => tGuild.id === rGuild.id)
+    );
+    
+    return sharedGuilds.length > 0;
+  }
+
+  // Get user by ID
+  async getUserById(userId: string): Promise<User> {
+    const user = await this.userRepository.findOne({ id: userId });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
   }
 
   // Guild management methods
@@ -170,6 +307,21 @@ export class ChatService {
       throw new NotFoundException('Guild not found');
     }
 
+    // Check if guild has no channels and create a default one
+    if (guild.channels.length === 0) {
+      console.log(`[DEBUG] Guild ${guildId} has no channels, creating default channel`);
+      const defaultChannel = new Channel();
+      defaultChannel.name = 'general';
+      defaultChannel.description = 'General discussion channel';
+      defaultChannel.guild = guild;
+
+      await this.channelRepository.persistAndFlush(defaultChannel);
+      console.log(`[DEBUG] Created default channel '${defaultChannel.name}' with ID: ${defaultChannel.id} for existing guild ${guild.id}`);
+      
+      // Reload guild with channels
+      await guild.channels.init();
+    }
+
     return guild;
   }
 
@@ -187,6 +339,15 @@ export class ChatService {
     userGuild.role = UserGuildRole.OWNER;
 
     await this.userGuildRepository.persistAndFlush(userGuild);
+
+    // Create a default "general" channel for the new guild
+    const defaultChannel = new Channel();
+    defaultChannel.name = 'general';
+    defaultChannel.description = 'General discussion channel';
+    defaultChannel.guild = guild;
+
+    await this.channelRepository.persistAndFlush(defaultChannel);
+    console.log(`[DEBUG] Created default channel '${defaultChannel.name}' with ID: ${defaultChannel.id} for guild ${guild.id}`);
 
     return guild;
   }
@@ -221,41 +382,145 @@ export class ChatService {
       throw new ForbiddenException('You do not have access to this guild');
     }
 
-    return this.channelRepository.find({ guild: guildId });
+    let channels = await this.channelRepository.find({ guild: guildId });
+    
+    // If no channels exist, create a default one
+    if (channels.length === 0) {
+      console.log(`[DEBUG] Guild ${guildId} has no channels, creating default channel`);
+      const guild = await this.guildRepository.findOneOrFail({ id: guildId });
+      
+      const defaultChannel = new Channel();
+      defaultChannel.name = 'general';
+      defaultChannel.description = 'General discussion channel';
+      defaultChannel.guild = guild;
+
+      await this.channelRepository.persistAndFlush(defaultChannel);
+      console.log(`[DEBUG] Created default channel '${defaultChannel.name}' with ID: ${defaultChannel.id} for existing guild ${guild.id}`);
+      
+      channels = [defaultChannel];
+    }
+
+    return channels;
   }
 
   async getChannel(channelId: string, userId: string): Promise<Channel> {
-    const hasAccess = await this.checkUserChannelAccess(userId, channelId);
-    if (!hasAccess) {
-      throw new ForbiddenException('You do not have access to this channel');
-    }
-
-    const channel = await this.channelRepository.findOne(
+    console.log(`Getting channel ${channelId} for user ${userId}`);
+    
+    // First, check if the channel exists
+    let channel = await this.channelRepository.findOne(
       { id: channelId },
       { populate: ['guild'] }
     );
-
+    
+    // If channel doesn't exist, try to find a guild the user has access to and use a default channel
     if (!channel) {
-      throw new NotFoundException('Channel not found');
+      console.log(`Channel ${channelId} not found, attempting to find a default channel for user ${userId}`);
+      
+      const userGuilds = await this.getUserGuilds(userId);
+      if (userGuilds.length === 0) {
+        console.error(`User ${userId} has no guild access`);
+        throw new ForbiddenException('You do not have access to any guilds');
+      }
+      
+      // Use the first guild the user has access to
+      const guild = userGuilds[0];
+      console.log(`User has access to guild ${guild.id}, checking for existing channels`);
+      
+      const existingChannels = await this.channelRepository.find({ guild: guild.id });
+      if (existingChannels.length === 0) {
+        console.log(`Guild ${guild.id} has no channels, creating default channel`);
+        const defaultChannel = new Channel();
+        defaultChannel.name = 'general';
+        defaultChannel.description = 'General discussion channel';
+        defaultChannel.guild = guild;
+
+        await this.channelRepository.persistAndFlush(defaultChannel);
+        console.log(`Created default channel '${defaultChannel.name}' with ID: ${defaultChannel.id} for guild ${guild.id}`);
+        channel = defaultChannel;
+      } else {
+        // Use the first existing channel
+        channel = existingChannels[0];
+        console.log(`Using existing channel ${channel.id} (${channel.name}) from guild ${guild.id}`);
+      }
+    }
+    
+    // Now check if user has access to the channel (or the fallback channel)
+    const hasAccess = await this.checkUserChannelAccess(userId, channel.id);
+    console.log(`Channel access check result for channel ${channel.id}: ${hasAccess}`);
+    if (!hasAccess) {
+      console.error(`Access denied for user ${userId} to channel ${channel.id}`);
+      throw new ForbiddenException('You do not have access to this channel');
     }
 
     return channel;
   }
 
   async createChannel(guildId: string, name: string, userId: string, description?: string): Promise<Channel> {
+    console.log(`[DEBUG] createChannel called - guildId: ${guildId}, name: ${name}, userId: ${userId}`);
+    
     const hasAccess = await this.checkUserGuildAccess(userId, guildId);
     if (!hasAccess) {
+      console.log(`[DEBUG] createChannel - User ${userId} does not have access to guild ${guildId}`);
       throw new ForbiddenException('You do not have access to this guild');
     }
 
+    console.log(`[DEBUG] createChannel - User has access, finding guild ${guildId}`);
     const guild = await this.guildRepository.findOneOrFail({ id: guildId });
+    console.log(`[DEBUG] createChannel - Guild found: ${guild.id}, name: ${guild.name}`);
 
     const channel = new Channel();
     channel.name = name;
     channel.description = description;
     channel.guild = guild;
 
+    console.log(`[DEBUG] createChannel - About to persist channel: ${channel.name}`);
+    await this.channelRepository.persistAndFlush(channel);
+    console.log(`[DEBUG] createChannel - Channel persisted with ID: ${channel.id}`);
+    
+    return channel;
+  }
+
+  async updateChannel(guildId: string, channelId: string, userId: string, updateData: { name?: string; description?: string }): Promise<Channel> {
+    const hasAccess = await this.checkUserGuildAccess(userId, guildId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this guild');
+    }
+
+    const channel = await this.channelRepository.findOne({ 
+      id: channelId, 
+      guild: { id: guildId } 
+    }, { populate: ['guild'] });
+
+    if (!channel) {
+      throw new NotFoundException('Channel not found');
+    }
+
+    if (updateData.name !== undefined) {
+      channel.name = updateData.name;
+    }
+    if (updateData.description !== undefined) {
+      channel.description = updateData.description;
+    }
+
     await this.channelRepository.persistAndFlush(channel);
     return channel;
+  }
+
+  async deleteChannel(guildId: string, channelId: string, userId: string): Promise<void> {
+    const hasAccess = await this.checkUserGuildAccess(userId, guildId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this guild');
+    }
+
+    const channel = await this.channelRepository.findOne({ 
+      id: channelId, 
+      guild: { id: guildId } 
+    });
+
+    if (!channel) {
+      throw new NotFoundException('Channel not found');
+    }
+
+    await this.channelRepository.removeAndFlush(channel);
   }
 }

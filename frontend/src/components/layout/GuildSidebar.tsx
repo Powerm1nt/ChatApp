@@ -1,11 +1,14 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Plus } from 'lucide-react';
+import { Home, Plus, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSocketStore } from '../../stores/socketStore';
 import { CreateGuildDialog } from '../CreateGuildDialog';
+import { ServiceStatusIndicator } from '../status/ServiceStatusIndicator';
+import { GuildStatusDialog } from '../status/GuildStatusDialog';
+import { parseShortUuid } from '../../utilities';
 
 export function GuildSidebar() {
   const navigate = useNavigate();
@@ -22,11 +25,7 @@ export function GuildSidebar() {
   };
 
   const isGuildActive = (guildId: string) => {
-    const getShortId = (id: string) => {
-      return id.split('-')[0];
-    };
-    const shortGuildId = getShortId(guildId);
-    return location.pathname.includes(`/guild/${shortGuildId}`);
+    return location.pathname.includes(`/guild/${guildId}`);
   };
 
   const getGuildInitials = (name: string) => {
@@ -39,14 +38,8 @@ export function GuildSidebar() {
   };
 
   const handleGuildClick = (guildId: string) => {
-    // Get the first part of UUID (before first dash)
-    const getShortId = (id: string) => {
-      return id.split('-')[0];
-    };
-    
     // Navigate to the guild without a specific channel - let the guild view handle channel selection
-    const shortGuildId = getShortId(guildId);
-    navigate(`/guild/${shortGuildId}`);
+    navigate(`/guild/${guildId}`);
   };
 
   return (
@@ -79,29 +72,38 @@ export function GuildSidebar() {
         {/* Guild List */}
         <div className="flex flex-col space-y-2">
           {guilds.map((guild) => (
-            <Tooltip key={guild.id}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`w-12 h-12 mx-2 rounded-xl transition-all duration-200 ${
-                    isGuildActive(guild.id)
-                      ? 'bg-primary text-primary-foreground rounded-lg'
-                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg'
-                  }`}
-                  onClick={() => handleGuildClick(guild.id)}
-                >
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback className="text-xs font-semibold bg-transparent">
-                      {getGuildInitials(guild.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>{guild.name}</p>
-              </TooltipContent>
-            </Tooltip>
+            <div key={guild.id} className="relative group">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`w-12 h-12 mx-2 rounded-xl transition-all duration-200 ${
+                      isGuildActive(guild.id)
+                        ? 'bg-primary text-primary-foreground rounded-lg'
+                        : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg'
+                    }`}
+                    onClick={() => handleGuildClick(guild.id)}
+                  >
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback className="text-xs font-semibold bg-transparent">
+                        {getGuildInitials(guild.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <div className="flex items-center gap-2">
+                    <span>{guild.name}</span>
+                    <GuildStatusDialog guildId={guild.id} guildName={guild.name}>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                        <Activity className="h-3 w-3" />
+                      </Button>
+                    </GuildStatusDialog>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           ))}
         </div>
 
@@ -122,6 +124,14 @@ export function GuildSidebar() {
             <p>Add a Server</p>
           </TooltipContent>
         </Tooltip>
+
+        {/* Spacer to push status to bottom */}
+        <div className="flex-1" />
+
+        {/* Service Status Indicator */}
+        <div className="mx-2">
+          <ServiceStatusIndicator />
+        </div>
       </div>
     </TooltipProvider>
   );

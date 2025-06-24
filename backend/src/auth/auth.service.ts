@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@mikro-orm/nestjs';
-import { EntityRepository } from '@mikro-orm/core';
+import { EntityRepository, EntityManager } from '@mikro-orm/core';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../entities';
 import { JwtPayload, AuthResponse } from './auth.config';
@@ -12,6 +12,7 @@ export class AuthService {
     private jwtService: JwtService,
     @InjectRepository(User)
     private userRepository: EntityRepository<User>,
+    private em: EntityManager,
   ) {}
 
   async validateUser(email: string, password: string): Promise<Omit<User, 'password'> | null> {

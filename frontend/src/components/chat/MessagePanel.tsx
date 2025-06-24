@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuthStore } from '@/stores/authStore';
 import { useSocketStore } from '@/stores/socketStore';
+import { useGuildStore } from '@/stores/guildStore';
 
 interface MessagePanelProps {
   chatType: 'guild' | 'direct' | 'group' | 'unknown';
@@ -28,13 +29,18 @@ export default function MessagePanel({ chatType, chatId, channelId }: MessagePan
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthStore();
-  const { socket, isConnected } = useSocketStore();
+  const { socket, isConnected, sendMessage } = useSocketStore();
+  const { getChannelById } = useGuildStore();
 
   // Get chat title based on type
   const getChatTitle = () => {
     switch (chatType) {
       case 'guild':
-        return `# ${channelId || 'general'}`;
+        if (channelId) {
+          const channel = getChannelById(channelId);
+          return `# ${channel?.name || 'general'}`;
+        }
+        return '# general';
       case 'direct':
         return `Direct Message`;
       case 'group':
@@ -53,9 +59,16 @@ export default function MessagePanel({ chatType, chatId, channelId }: MessagePan
     scrollToBottom();
   }, [messages]);
 
-  // Socket event handlers
+  // Clear messages when channel/chat changes
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    // Clear messages immediately when switching channels/chats
+    setMessages([]);
+    setIsTyping(false);
+  }, [chatId, channelId, chatType]);
+
+  // Socket event handlers and message restoration
+  useEffect(() => {
+    if (!socket || !isConnected || !user) return;
 
     const handleNewMessage = (message: Message) => {
       setMessages(prev => [...prev, message]);
@@ -76,37 +89,89 @@ export default function MessagePanel({ chatType, chatId, channelId }: MessagePan
     socket.on('room-messages', handleRoomMessages);
     socket.on('user-typing', handleUserTyping);
 
-    // Join the appropriate room
-    const roomId = chatType === 'guild' ? `${chatId}-${channelId}` : chatId;
-    socket.emit('join-room', { roomId, chatType });
-    socket.emit('get-messages', { roomId });
+    // Join the appropriate room and restore messages
+    const roomId = chatType === 'guild' ? channelId : chatId;
+    const guildId = chatType === 'guild' ? chatId : undefined;
+    
+    // Only proceed if we have a valid roomId
+    if (!roomId) {
+      console.warn('No roomId available for joining room');
+      return;
+    }
+    
+    // Join room via socket for real-time events
+    socket.emit('join-room', { 
+      username: user.username, 
+      room: roomId, 
+      guildId 
+    });
+
+    // Restore messages using the socketStore's fetchMessages function
+    const restoreMessages = async () => {
+      try {
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const { token } = useAuthStore.getState();
+        
+        let url: string;
+        if (chatType === 'guild' && guildId && channelId) {
+          url = `${API_BASE_URL}/api/guilds/${guildId}/channels/${channelId}/messages`;
+        } else {
+          // For direct messages or other chat types
+          url = `${API_BASE_URL}/api/chats/${roomId}/messages`;
+        }
+        
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.messages) {
+            setMessages(data.messages);
+          }
+        } else {
+          console.error('Failed to fetch messages:', response.statusText);
+          // Set empty messages on error to avoid showing stale data
+          setMessages([]);
+        }
+      } catch (error) {
+        console.error('Failed to restore messages:', error);
+        // Set empty messages on error to avoid showing stale data
+        setMessages([]);
+      }
+    };
+
+    restoreMessages();
 
     return () => {
       socket.off('new-message', handleNewMessage);
       socket.off('room-messages', handleRoomMessages);
       socket.off('user-typing', handleUserTyping);
     };
-  }, [socket, isConnected, chatId, channelId, chatType, user?.id]);
+  }, [socket, isConnected, chatId, channelId, chatType, user]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !socket || !isConnected) return;
+    if (!newMessage.trim() || !isConnected || !user) return;
 
-    const roomId = chatType === 'guild' ? `${chatId}-${channelId}` : chatId;
-    
-    socket.emit('send-message', {
-      roomId,
-      content: newMessage.trim(),
-      chatType
-    });
-
-    setNewMessage('');
+    try {
+      const roomId = chatType === 'guild' ? channelId : chatId;
+      const guildId = chatType === 'guild' ? chatId : undefined;
+      
+      await sendMessage(newMessage.trim(), guildId, roomId);
+      setNewMessage('');
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
   };
 
   const handleTyping = () => {
     if (!socket || !isConnected) return;
     
-    const roomId = chatType === 'guild' ? `${chatId}-${channelId}` : chatId;
+    const roomId = chatType === 'guild' ? channelId : chatId;
     socket.emit('typing', { roomId });
   };
 
@@ -138,15 +203,14 @@ export default function MessagePanel({ chatType, chatId, channelId }: MessagePan
           </div>
         ) : (
           messages.map((message) => (
-            <div key={message.id} className="flex space-x-3">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>
-                  {message.author.username?.charAt(0).toUpperCase() || 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium text-sm">{message.author.username}</span>
+            <div key={message.id} className="flex space-x-3">                <Avatar className="h-8 w-8">
+                  <AvatarFallback>
+                    {message.author.username.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium text-sm">{message.author.username}</span>
                   <span className="text-xs text-muted-foreground">
                     {formatTime(message.timestamp)}
                   </span>

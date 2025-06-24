@@ -11,7 +11,7 @@ export enum FriendRequestStatus {
 @Entity()
 export class FriendRequest {
   @PrimaryKey()
-  id: string = uuidv4();
+  id: string = uuidv4().split('-')[0];
 
   @ManyToOne(() => User)
   sender!: User;

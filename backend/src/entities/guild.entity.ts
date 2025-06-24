@@ -6,7 +6,7 @@ import { UserGuild } from './user-guild.entity';
 @Entity()
 export class Guild {
   @PrimaryKey()
-  id: string = uuidv4();
+  id: string = uuidv4().split('-')[0];
 
   @Property()
   name!: string;

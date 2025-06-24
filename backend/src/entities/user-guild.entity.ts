@@ -12,7 +12,7 @@ export enum UserGuildRole {
 @Entity()
 export class UserGuild {
   @PrimaryKey()
-  id: string = uuidv4();
+  id: string = uuidv4().split('-')[0];
 
   @ManyToOne(() => User)
   user!: User;

@@ -6,7 +6,7 @@ import { GroupMessage } from './group-message.entity';
 @Entity()
 export class Group {
   @PrimaryKey()
-  id: string = uuidv4();
+  id: string = uuidv4().split('-')[0];
 
   @Property()
   name!: string;
