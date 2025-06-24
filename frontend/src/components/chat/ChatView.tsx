@@ -50,7 +50,8 @@ export default function ChatView({
         }
       });
     }
-  }, [guild_id, channel_id, fullGuildId, channels, fetchChannels, navigate, showChannelList]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guild_id, channel_id, fullGuildId, showChannelList]);
 
   return (
     <div className="flex h-screen bg-background">

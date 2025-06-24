@@ -22,7 +22,8 @@ export function ChannelList({ guildId }: ChannelListProps) {
     if (guildId) {
       fetchChannels(guildId);
     }
-  }, [guildId, fetchChannels]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guildId]);
 
   const currentGuild = guilds.find(g => g.id === guildId);
   const guildChannels = channels.filter(c => c.guildId === guildId);

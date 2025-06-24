@@ -14,7 +14,8 @@ export function GuildSidebar() {
 
   useEffect(() => {
     fetchGuilds();
-  }, [fetchGuilds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isActive = (path: string) => {
     return location.pathname === path;
