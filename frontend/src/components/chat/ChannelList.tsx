@@ -25,6 +25,19 @@ interface ChannelListProps {
   guildId: string;
 }
 
+function ChannelPlaceholder() {
+  return (
+    <div className="space-y-2">
+      {[...Array(10)].map((_, index) => (
+        <div key={index} className="flex items-center px-2 py-1.5">
+          <Skeleton className="w-4 h-4 mr-2 bg-gray-600" />
+          <Skeleton className="h-4 flex-1 bg-gray-600" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
   const navigate = useNavigate();
   const params = useParams();
@@ -43,11 +56,7 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
   }, [guildId, currentGuild?.id]);
 
   if (!currentGuild) {
-    return (
-      <div className="w-60 bg-gray-800 flex flex-col min-h-screen">
-        <div className="p-4 text-white">Loading guild...</div>
-      </div>
-    );
+    return <ChannelPlaceholder />;
   }
 
   const guildChannels = currentGuild?.channels || [];
@@ -84,7 +93,7 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
             </span>
             <CreateChannelDialog guildId={guildId}>
               <Button
-                variant="ghost"
+                variant="none"
                 size="icon"
                 className="w-4 h-4 text-gray-400 hover:text-white"
               >
@@ -94,89 +103,90 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
           </div>
 
           <div className="space-y-1">
-            {isLoadingChannels ? (
-              // Loading skeleton
-              <div className="space-y-2">
-                {[...Array(3)].map((_, index) => (
-                  <div key={index} className="flex items-center px-2 py-1.5">
-                    <Skeleton className="w-4 h-4 mr-2 bg-gray-600" />
-                    <Skeleton className="h-4 flex-1 bg-gray-600" />
-                  </div>
-                ))}
-              </div>
-            ) : guildChannels.length > 0 ? (
-              guildChannels.map((channel) => (
-                <div
-                  key={channel.id}
-                  className={`group flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-700 ${
-                    isChannelActive(channel.id) ? "bg-gray-600" : ""
-                  }`}
-                >
-                  <Button
-                    variant="ghost"
-                    className={`flex-1 justify-start px-0 py-0 h-auto text-left ${
-                      isChannelActive(channel.id)
-                        ? "text-white"
-                        : "text-gray-300 hover:text-white"
+            {(() => {
+              if (isLoadingChannels) {
+                // Loading skeleton
+                return <ChannelPlaceholder />;
+              }
+              if (guildChannels.length > 0) {
+                return guildChannels.map((channel) => (
+                  <div
+                    key={channel.id}
+                    className={`group flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-700 ${
+                      isChannelActive(channel.id) ? "bg-gray-600" : ""
                     }`}
-                    onClick={() => handleChannelClick(channel.id)}
                   >
-                    <Hash className="w-4 h-4 mr-2 flex-shrink-0" />
-                    <span className="truncate">{channel.name}</span>
-                  </Button>
+                    <Button
+                      variant="none"
+                      className={`flex-1 justify-start px-0 py-0 h-auto text-left ${
+                        isChannelActive(channel.id)
+                          ? "text-white"
+                          : "text-gray-300 hover:text-white"
+                      }`}
+                      onClick={() => handleChannelClick(channel.id)}
+                    >
+                      <Hash className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className="truncate">{channel.name}</span>
+                    </Button>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-4 h-4 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white transition-opacity"
-                      >
-                        <MoreVertical className="h-3 w-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {" "}
-                      <CreateChannelDialog guildId={guildId}>
-                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Channel
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="none"
+                          size="icon"
+                          className="w-4 h-4 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white transition-opacity"
+                        >
+                          <MoreVertical className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {" "}
+                        <CreateChannelDialog guildId={guildId}>
+                          <DropdownMenuItem
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Channel
+                          </DropdownMenuItem>
+                        </CreateChannelDialog>
+                        <EditChannelDialog guildId={guildId} channel={channel}>
+                          <DropdownMenuItem
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Channel
+                          </DropdownMenuItem>
+                        </EditChannelDialog>
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteChannel(channel.id)}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Channel
                         </DropdownMenuItem>
-                      </CreateChannelDialog>
-                      <EditChannelDialog guildId={guildId} channel={channel}>
-                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Channel
-                        </DropdownMenuItem>
-                      </EditChannelDialog>
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteChannel(channel.id)}
-                        className="text-red-600 focus:text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete Channel
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ));
+              }
+              return (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="w-16 h-16 mb-4 rounded-full bg-gray-700 flex items-center justify-center">
+                    <MessageSquare className="w-8 h-8 text-gray-500" />
+                  </div>
+                  <p className="text-gray-500 text-sm mb-2">No channels yet</p>
+                  <p className="text-gray-600 text-xs mb-4">
+                    Create your first channel to get started
+                  </p>
+                  <CreateChannelDialog guildId={guildId}>
+                    <Button variant="outline" size="sm">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Channel
+                    </Button>
+                  </CreateChannelDialog>
                 </div>
-              ))
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <div className="w-16 h-16 mb-4 rounded-full bg-gray-700 flex items-center justify-center">
-                  <MessageSquare className="w-8 h-8 text-gray-500" />
-                </div>
-                <p className="text-gray-500 text-sm mb-2">No channels yet</p>
-                <p className="text-gray-600 text-xs mb-4">
-                  Create your first channel to get started
-                </p>
-                <CreateChannelDialog guildId={guildId}>
-                  <Button variant="outline" size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Channel
-                  </Button>
-                </CreateChannelDialog>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       </div>
