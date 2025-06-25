@@ -8,6 +8,7 @@ import {
   Edit,
   ChevronDown,
   Activity,
+  Settings,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
@@ -211,7 +212,7 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
                               }`}
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <Edit className="w-3 h-3" />
+                              <Settings className="w-3 h-3" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
