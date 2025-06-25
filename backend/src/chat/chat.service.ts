@@ -139,6 +139,13 @@ export class ChatService {
         channel = existingChannels[0];
         console.log(`Using existing channel ${channel.id} (${channel.name}) from guild ${guild.id}`);
       }
+    } else {
+      // Check if the guild still exists for the found channel
+      const guild = await this.guildRepository.findOne({ id: channel.guild.id });
+      if (!guild) {
+        console.log(`Guild ${channel.guild.id} not found - channel ${channelId} is orphaned`);
+        throw new NotFoundException('Guild not found');
+      }
     }
     
     // Now check if user has access to the channel (or the fallback channel)
@@ -176,6 +183,13 @@ export class ChatService {
     if (!channel) {
       console.log(`Channel ${channelId} not found`);
       throw new NotFoundException('Channel not found');
+    }
+    
+    // Check if the guild still exists
+    const guild = await this.guildRepository.findOne({ id: channel.guild.id });
+    if (!guild) {
+      console.log(`Guild ${channel.guild.id} not found - channel ${channelId} is orphaned`);
+      throw new NotFoundException('Guild not found');
     }
     
     // Check if user has access to the channel
@@ -283,6 +297,11 @@ export class ChatService {
     return user;
   }
 
+  // Get user by username
+  async getUserByUsername(username: string): Promise<User | null> {
+    return await this.userRepository.findOne({ username });
+  }
+
   // Guild management methods
   async getUserGuilds(userId: string): Promise<Guild[]> {
     const userGuilds = await this.userGuildRepository.find(
@@ -383,6 +402,32 @@ export class ChatService {
 
     await this.guildRepository.persistAndFlush(guild);
     return guild;
+  }
+
+  async deleteGuild(guildId: string, userId: string): Promise<void> {
+    // Check if user has access to the guild
+    const hasAccess = await this.checkUserGuildAccess(userId, guildId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this guild');
+    }
+
+    // Check if user has permission to delete the guild (only owner)
+    const userGuild = await this.userGuildRepository.findOne({
+      user: userId,
+      guild: guildId,
+    });
+
+    if (!userGuild || userGuild.role !== UserGuildRole.OWNER) {
+      throw new ForbiddenException('Only the guild owner can delete this guild');
+    }
+
+    const guild = await this.guildRepository.findOne({ id: guildId }, { populate: ['channels'] });
+    if (!guild) {
+      throw new NotFoundException('Guild not found');
+    }
+
+    // Delete the guild itself - cascade delete will handle channels, messages, and user-guild relationships
+    await this.guildRepository.removeAndFlush(guild);
   }
 
   async joinGuild(guildId: string, userId: string): Promise<UserGuild> {
@@ -548,12 +593,16 @@ export class ChatService {
     const channel = await this.channelRepository.findOne({ 
       id: channelId, 
       guild: { id: guildId } 
-    });
+    }, { populate: ['messages'] });
 
     if (!channel) {
       throw new NotFoundException('Channel not found');
     }
 
+    // Manually delete all messages first to avoid foreign key constraint issues
+    await this.messageRepository.nativeDelete({ channel: channelId });
+    
+    // Now delete the channel
     await this.channelRepository.removeAndFlush(channel);
   }
 }

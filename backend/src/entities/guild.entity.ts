@@ -1,4 +1,4 @@
-import { Entity, PrimaryKey, Property, OneToMany, Collection } from '@mikro-orm/core';
+import { Entity, PrimaryKey, Property, OneToMany, Collection, Cascade } from '@mikro-orm/core';
 import { v4 as uuidv4 } from 'uuid';
 import { Channel } from './channel.entity';
 import { UserGuild } from './user-guild.entity';
@@ -17,9 +17,9 @@ export class Guild {
   @Property()
   createdAt: Date = new Date();
 
-  @OneToMany(() => Channel, channel => channel.guild)
+  @OneToMany(() => Channel, channel => channel.guild, { cascade: [Cascade.REMOVE] })
   channels = new Collection<Channel>(this);
 
-  @OneToMany(() => UserGuild, userGuild => userGuild.guild)
+  @OneToMany(() => UserGuild, userGuild => userGuild.guild, { cascade: [Cascade.REMOVE] })
   members = new Collection<UserGuild>(this);
 }

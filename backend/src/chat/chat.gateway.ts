@@ -145,30 +145,65 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.logger.log(`Broadcasting guild updated: ${guild.name} (${guildId})`);
   }
 
+  broadcastGuildDeleted(guildId: string, guildName: string) {
+    this.server.to(`guild-${guildId}`).emit('guild-deleted', {
+      guildId,
+      guildName,
+      timestamp: new Date(),
+    });
+    this.logger.log(`Broadcasting guild deleted: ${guildName} (${guildId})`);
+  }
+
 
   @SubscribeMessage('send-message')
-  handleSendMessage(
+  async handleSendMessage(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; content: string; chatType: string },
   ) {
     const user = this.chatService.getSocketUser(client.id);
-    if (!user || !data.content?.trim()) return;
+    if (!user || !data.content?.trim()) {
+      this.logger.warn(`Invalid message attempt from ${client.id}: user=${!!user}, content=${!!data.content?.trim()}`);
+      return;
+    }
 
-    const message: ChatMessage = {
-      id: Date.now().toString(),
-      content: data.content.trim(),
-      author: {
-        id: user.id,
-        username: user.username,
-      },
-      timestamp: new Date(),
-      room: data.roomId,
-    };
+    try {
+      // Use the same validation and persistence logic as REST API
+      // Note: user.id in socket context is the socket ID, we need the actual user ID
+      // For now, we'll use the username to find the user, but this should be improved
+      // to store actual user ID in socket user data
+      const actualUser = await this.chatService.getUserByUsername(user.username);
+      if (!actualUser) {
+        this.logger.error(`User not found for username: ${user.username}`);
+        client.emit('error', 'User not found');
+        return;
+      }
 
-    // Broadcast message to room
-    this.server.to(data.roomId).emit('new-message', message);
-    
-    this.logger.log(`Message from ${user.username} in ${data.roomId}: ${data.content}`);
+      // Save message with proper validation
+      const savedMessage = await this.chatService.saveMessage(
+        data.content.trim(),
+        actualUser.id,
+        data.roomId
+      );
+
+      const message: ChatMessage = {
+        id: savedMessage.id,
+        content: savedMessage.content,
+        author: {
+          id: actualUser.id,
+          username: user.username,
+        },
+        timestamp: savedMessage.timestamp,
+        room: data.roomId,
+      };
+
+      // Broadcast message to room
+      this.server.to(data.roomId).emit('new-message', message);
+      
+      this.logger.log(`Message from ${user.username} in ${data.roomId}: ${data.content}`);
+    } catch (error) {
+      this.logger.error(`Failed to send message from ${user.username} to ${data.roomId}:`, error);
+      client.emit('error', error.message || 'Failed to send message');
+    }
   }
 
   @SubscribeMessage('get-messages')

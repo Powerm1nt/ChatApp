@@ -1,4 +1,4 @@
-import { Entity, PrimaryKey, Property, ManyToOne, OneToMany, Collection } from '@mikro-orm/core';
+import { Entity, PrimaryKey, Property, ManyToOne, OneToMany, Collection, Cascade } from '@mikro-orm/core';
 import { v4 as uuidv4 } from 'uuid';
 import { Guild } from './guild.entity';
 import { Message } from './message.entity';
@@ -20,6 +20,6 @@ export class Channel {
   @ManyToOne(() => Guild)
   guild!: Guild;
 
-  @OneToMany(() => Message, message => message.channel)
+  @OneToMany(() => Message, message => message.channel, { cascade: [Cascade.REMOVE] })
   messages = new Collection<Message>(this);
 }

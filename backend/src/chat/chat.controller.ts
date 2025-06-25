@@ -181,6 +181,26 @@ export class ChatController {
     return updatedGuild;
   }
 
+  @Delete('guilds/:guildId')
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteGuild(
+    @Param('guildId') guildId: string,
+    @Request() req: any
+  ) {
+    const userId = req.user.id;
+    
+    // Get guild info before deletion for broadcasting
+    const guild = await this.chatService.getGuild(guildId, userId);
+    
+    await this.chatService.deleteGuild(guildId, userId);
+    
+    // Broadcast guild deletion to all guild members
+    this.chatGateway.broadcastGuildDeleted(guildId, guild.name);
+    
+    return { success: true };
+  }
+
   @Get('guilds/:guildId/channels')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)

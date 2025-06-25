@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, Plus, Activity, Edit } from "lucide-react";
+import { Home, Plus, Activity, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -18,6 +18,7 @@ import { useGuildStoreWithAutoFetch } from "../../stores/guildStore";
 import { CreateGuildDialog } from "../CreateGuildDialog";
 import { GuildStatusDialog } from "../status/GuildStatusDialog";
 import { EditGuildDialog } from "../EditGuildDialog";
+import { DeleteGuildDialog } from "../DeleteGuildDialog";
 
 export function GuildSidebar() {
   const navigate = useNavigate();
@@ -115,6 +116,12 @@ export function GuildSidebar() {
                       Server Status
                     </ContextMenuItem>
                   </GuildStatusDialog>
+                  <DeleteGuildDialog guild={guild}>
+                    <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Server
+                    </ContextMenuItem>
+                  </DeleteGuildDialog>
                 </ContextMenuContent>
               </ContextMenu>
             </div>
