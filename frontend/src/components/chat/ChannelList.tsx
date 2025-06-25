@@ -19,7 +19,6 @@ import {
 import { CreateChannelDialog } from "../CreateChannelDialog";
 import { EditChannelDialog } from "../EditChannelDialog";
 import { useGuildStoreWithAutoFetch } from "../../stores/guildStore";
-import { parseShortUuid } from "../../utilities";
 
 interface ChannelListProps {
   guildId: string;

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Edit } from 'lucide-react';
+import React, { useState } from "react";
+import { Edit } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,12 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { useGuildStore, Channel } from '../stores/guildStore';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useGuildStore, Channel } from "../stores/guildStore";
 
 interface EditChannelDialogProps {
   guildId: string;
@@ -21,10 +21,14 @@ interface EditChannelDialogProps {
   children?: React.ReactNode;
 }
 
-export function EditChannelDialog({ guildId, channel, children }: EditChannelDialogProps) {
+export function EditChannelDialog({
+  guildId,
+  channel,
+  children,
+}: EditChannelDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(channel.name);
-  const [description, setDescription] = useState(channel.description || '');
+  const [description, setDescription] = useState(channel.description || "");
   const [isLoading, setIsLoading] = useState(false);
   const { updateChannel } = useGuildStore();
 
@@ -37,13 +41,18 @@ export function EditChannelDialog({ guildId, channel, children }: EditChannelDia
 
     setIsLoading(true);
     try {
-      const result = await updateChannel(guildId, channel.id, name, description || undefined);
+      const result = await updateChannel(
+        guildId,
+        channel.id,
+        name,
+        description || undefined
+      );
       if (result) {
         // Close dialog on success
         setOpen(false);
       }
     } catch (error) {
-      console.error('Failed to update channel:', error);
+      console.error("Failed to update channel:", error);
     } finally {
       setIsLoading(false);
     }
@@ -54,7 +63,7 @@ export function EditChannelDialog({ guildId, channel, children }: EditChannelDia
     if (!newOpen) {
       // Reset form when dialog closes
       setName(channel.name);
-      setDescription(channel.description || '');
+      setDescription(channel.description ?? "");
     }
   };
 
@@ -115,7 +124,7 @@ export function EditChannelDialog({ guildId, channel, children }: EditChannelDia
               Cancel
             </Button>
             <Button type="submit" disabled={!name.trim() || isLoading}>
-              {isLoading ? 'Updating...' : 'Update Channel'}
+              {isLoading ? "Updating..." : "Update Channel"}
             </Button>
           </DialogFooter>
         </form>
