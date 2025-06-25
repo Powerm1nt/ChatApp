@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CreateChannelDialog } from "../CreateChannelDialog";
 import { EditChannelDialog } from "../EditChannelDialog";
-import { EditGuildDialog } from "../EditGuildDialog";
+import { GuildSettingsDialog } from "../GuildSettingsDialog";
 import { DeleteGuildDialog } from "../DeleteGuildDialog";
 import { GuildStatusDialog } from "../status/GuildStatusDialog";
 import { useGuildStoreWithAutoFetch } from "../../stores/guildStore";
@@ -125,13 +125,12 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
             {currentGuild && (
-              <>
-                <EditGuildDialog guild={currentGuild}>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit Server
-                  </DropdownMenuItem>
-                </EditGuildDialog>
+              <>                  <GuildSettingsDialog guild={currentGuild}>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Server Settings
+                    </DropdownMenuItem>
+                  </GuildSettingsDialog>
                 <GuildStatusDialog guildId={currentGuild.id} guildName={currentGuild.name}>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     <Activity className="mr-2 h-4 w-4" />

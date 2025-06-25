@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, Plus, Activity, Edit, Trash2 } from "lucide-react";
+import { Home, Plus, Activity, Trash2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -17,7 +17,7 @@ import {
 import { useGuildStoreWithAutoFetch } from "../../stores/guildStore";
 import { CreateGuildDialog } from "../CreateGuildDialog";
 import { GuildStatusDialog } from "../status/GuildStatusDialog";
-import { EditGuildDialog } from "../EditGuildDialog";
+import { GuildSettingsDialog } from "../GuildSettingsDialog";
 import { DeleteGuildDialog } from "../DeleteGuildDialog";
 
 export function GuildSidebar() {
@@ -103,13 +103,12 @@ export function GuildSidebar() {
                     <p>{guild.name}</p>
                   </TooltipContent>
                 </Tooltip>
-                <ContextMenuContent>
-                  <EditGuildDialog guild={guild}>
-                    <ContextMenuItem onSelect={(e) => e.preventDefault()}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit Server
-                    </ContextMenuItem>
-                  </EditGuildDialog>
+                <ContextMenuContent>                    <GuildSettingsDialog guild={guild}>
+                      <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Settings className="mr-2 h-4 w-4" />
+                        Server Settings
+                      </ContextMenuItem>
+                    </GuildSettingsDialog>
                   <GuildStatusDialog guildId={guild.id} guildName={guild.name}>
                     <ContextMenuItem onSelect={(e) => e.preventDefault()}>
                       <Activity className="mr-2 h-4 w-4" />
