@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Edit,
 } from "lucide-react";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -18,6 +19,7 @@ import {
 import { CreateChannelDialog } from "../CreateChannelDialog";
 import { EditChannelDialog } from "../EditChannelDialog";
 import { useGuildStoreWithAutoFetch } from "../../stores/guildStore";
+import { useConfirmationDialog } from "../ui/confirmation-dialog";
 
 interface ChannelListProps {
   guildId: string;
@@ -42,6 +44,8 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
 
   const { guilds, fetchChannels, deleteChannel, isLoadingChannels } =
     useGuildStoreWithAutoFetch();
+  
+  const { showConfirmation, ConfirmationDialog } = useConfirmationDialog();
 
   const currentGuild = guilds.find((g) => g.id === guildId);
 
@@ -68,9 +72,25 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
   };
 
   const handleDeleteChannel = async (channelId: string) => {
-    if (window.confirm("Are you sure you want to delete this channel?")) {
-      await deleteChannel(guildId, channelId);
-    }
+    const channel = guildChannels.find(c => c.id === channelId);
+    const channelName = channel?.name || 'this channel';
+    
+    showConfirmation({
+      title: "Delete Channel",
+      description: `Are you sure you want to delete "${channelName}"? This action cannot be undone.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      variant: "destructive",
+      onConfirm: async () => {
+        try {
+          await deleteChannel(guildId, channelId);
+          toast.success(`Channel "${channelName}" deleted successfully`);
+        } catch (error) {
+          console.error('Failed to delete channel:', error);
+          toast.error('Failed to delete channel. Please try again.');
+        }
+      }
+    });
   };
 
   return (
@@ -181,6 +201,7 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
           </div>
         </div>
       </div>
+      <ConfirmationDialog />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useGuildStore, Channel } from "../stores/guildStore";
+import { toast } from "@/lib/toast";
 
 interface EditChannelDialogProps {
   guildId: string;
@@ -50,9 +51,11 @@ export function EditChannelDialog({
       if (result) {
         // Close dialog on success
         setOpen(false);
+        toast.success(`Channel "${name}" updated successfully`);
       }
     } catch (error) {
       console.error("Failed to update channel:", error);
+      toast.error("Failed to update channel. Please try again.");
     } finally {
       setIsLoading(false);
     }

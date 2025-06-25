@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useGuildStore } from '../stores/guildStore';
+import { toast } from '@/lib/toast';
 
 interface CreateChannelDialogProps {
   guildId: string;
@@ -39,9 +40,11 @@ export function CreateChannelDialog({ guildId, children }: CreateChannelDialogPr
         // Reset form and close dialog
         setName('');
         setOpen(false);
+        toast.success(`Channel "${name}" created successfully`);
       }
     } catch (error) {
       console.error('Failed to create channel:', error);
+      toast.error('Failed to create channel. Please try again.');
     } finally {
       setIsLoading(false);
     }
