@@ -76,6 +76,7 @@ interface GuildState {
   getGuildById: (guildId: string) => Guild | undefined;
   getChannelsByGuildId: (guildId: string) => Channel[];
   getChannelById: (channelId: string) => Channel | undefined;
+  updateChannelInStore: (updatedChannel: Channel) => void;
 }
 
 export const useGuildStore = create<GuildState>()(
@@ -108,6 +109,14 @@ export const useGuildStore = create<GuildState>()(
   getChannelById: (channelId: string) => {
     const { channels } = get();
     return channels.find(channel => channel.id === channelId);
+  },
+
+  updateChannelInStore: (updatedChannel: Channel) => {
+    const { channels } = get();
+    const updatedChannels = channels.map(channel => 
+      channel.id === updatedChannel.id ? updatedChannel : channel
+    );
+    set({ channels: updatedChannels });
   },
 
   // Guild management

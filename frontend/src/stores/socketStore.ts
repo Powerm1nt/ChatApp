@@ -262,10 +262,10 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
             data.guildId
           );
 
-          // Import guild store to refresh channels
+          // Directly update the channel in the store to trigger immediate rerenders
           import("./guildStore").then(({ useGuildStore }) => {
             const guildStore = useGuildStore.getState();
-            guildStore.fetchChannels(data.guildId);
+            guildStore.updateChannelInStore(data.channel);
           });
         }
       );
