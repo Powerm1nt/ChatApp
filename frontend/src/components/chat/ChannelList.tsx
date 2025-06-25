@@ -1,11 +1,13 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Hash,
   Plus,
   Trash2,
   MessageSquare,
   Edit,
+  ChevronDown,
+  Activity,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
@@ -16,8 +18,17 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { CreateChannelDialog } from "../CreateChannelDialog";
 import { EditChannelDialog } from "../EditChannelDialog";
+import { EditGuildDialog } from "../EditGuildDialog";
+import { DeleteGuildDialog } from "../DeleteGuildDialog";
+import { GuildStatusDialog } from "../status/GuildStatusDialog";
 import { useGuildStoreWithAutoFetch } from "../../stores/guildStore";
 import { useConfirmationDialog } from "../ui/confirmation-dialog";
 
@@ -41,6 +52,7 @@ function ChannelPlaceholder() {
 export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
   const navigate = useNavigate();
   const params = useParams();
+  const [isGuildDropdownOpen, setIsGuildDropdownOpen] = useState(false);
 
   const { guilds, fetchChannels, deleteChannel, isLoadingChannels } =
     useGuildStoreWithAutoFetch();
@@ -97,9 +109,44 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
     <div className="w-60 bg-gray-800 flex flex-col h-screen">
       {/* Guild Header */}
       <div className="p-4 border-b border-gray-700 sticky top-0 z-10 bg-gray-800">
-        <h2 className="text-white font-semibold text-lg truncate">
-          {currentGuild?.name ?? "Loading..."}
-        </h2>
+        <DropdownMenu open={isGuildDropdownOpen} onOpenChange={setIsGuildDropdownOpen}>
+          <DropdownMenuTrigger asChild>
+            <div className="flex items-center justify-between cursor-pointer hover:bg-gray-700 rounded px-2 py-1 -mx-2 -my-1 transition-colors">
+              <h2 className="text-white font-semibold text-lg truncate">
+                {currentGuild?.name ?? "Loading..."}
+              </h2>
+              <ChevronDown 
+                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                  isGuildDropdownOpen ? 'rotate-180' : ''
+                }`} 
+              />
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            {currentGuild && (
+              <>
+                <EditGuildDialog guild={currentGuild}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Server
+                  </DropdownMenuItem>
+                </EditGuildDialog>
+                <GuildStatusDialog guildId={currentGuild.id} guildName={currentGuild.name}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Activity className="mr-2 h-4 w-4" />
+                    Server Status
+                  </DropdownMenuItem>
+                </GuildStatusDialog>
+                <DeleteGuildDialog guild={currentGuild}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Server
+                  </DropdownMenuItem>
+                </DeleteGuildDialog>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Channels Section */}
@@ -150,6 +197,49 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
                           <Hash className="w-4 h-4 mr-2 flex-shrink-0" />
                           <span className="truncate">{channel.name}</span>
                         </Button>
+                        
+                        {/* Dropdown Menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`w-4 h-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity ${
+                                isChannelActive(channel.id)
+                                  ? "text-white hover:text-gray-300"
+                                  : "text-gray-400 hover:text-white"
+                              }`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <CreateChannelDialog guildId={guildId}>
+                              <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Create Channel
+                              </DropdownMenuItem>
+                            </CreateChannelDialog>
+                            <EditChannelDialog guildId={guildId} channel={channel}>
+                              <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                              >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit Channel
+                              </DropdownMenuItem>
+                            </EditChannelDialog>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteChannel(channel.id)}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete Channel
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </ContextMenuTrigger>
                     <ContextMenuContent>
