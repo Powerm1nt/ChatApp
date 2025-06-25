@@ -1,6 +1,5 @@
-import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, Plus, Activity } from "lucide-react";
+import { Home, Plus, Activity, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -9,21 +8,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useSocketStore } from "../../stores/socketStore";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { useGuildStoreWithAutoFetch } from "../../stores/guildStore";
 import { CreateGuildDialog } from "../CreateGuildDialog";
-import { ServiceStatusIndicator } from "../status/ServiceStatusIndicator";
 import { GuildStatusDialog } from "../status/GuildStatusDialog";
-import { parseShortUuid } from "../../utilities";
+import { EditGuildDialog } from "../EditGuildDialog";
 
 export function GuildSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { guilds, fetchGuilds } = useSocketStore();
-
-  useEffect(() => {
-    fetchGuilds();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { guilds } = useGuildStoreWithAutoFetch();
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -43,7 +42,6 @@ export function GuildSidebar() {
   };
 
   const handleGuildClick = (guildId: string) => {
-    // Navigate to the guild without a specific channel - let the guild view handle channel selection
     navigate(`/guild/${guildId}`);
   };
 
@@ -78,39 +76,47 @@ export function GuildSidebar() {
         <div className="flex flex-col space-y-2">
           {guilds.map((guild) => (
             <div key={guild.id} className="relative group">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`w-12 h-12 mx-2 rounded-xl transition-all duration-200 ${
-                      isGuildActive(guild.id)
-                        ? "bg-primary text-primary-foreground rounded-lg"
-                        : "bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg"
-                    }`}
-                    onClick={() => handleGuildClick(guild.id)}
-                  >
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className="text-xs font-semibold bg-transparent">
-                        {getGuildInitials(guild.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <div className="flex items-center gap-2">
-                    <span>{guild.name}</span>
-                    <GuildStatusDialog
-                      guildId={guild.id}
-                      guildName={guild.name}
-                    >
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                        <Activity className="h-3 w-3" />
+              <ContextMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <ContextMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`w-12 h-12 mx-2 rounded-xl transition-all duration-200 ${
+                          isGuildActive(guild.id)
+                            ? "bg-primary text-primary-foreground rounded-lg"
+                            : "bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg"
+                        }`}
+                        onClick={() => handleGuildClick(guild.id)}
+                      >
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className="text-xs font-semibold bg-transparent">
+                            {getGuildInitials(guild.name)}
+                          </AvatarFallback>
+                        </Avatar>
                       </Button>
-                    </GuildStatusDialog>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
+                    </ContextMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>{guild.name}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <ContextMenuContent>
+                  <EditGuildDialog guild={guild}>
+                    <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Server
+                    </ContextMenuItem>
+                  </EditGuildDialog>
+                  <GuildStatusDialog guildId={guild.id} guildName={guild.name}>
+                    <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Activity className="mr-2 h-4 w-4" />
+                      Server Status
+                    </ContextMenuItem>
+                  </GuildStatusDialog>
+                </ContextMenuContent>
+              </ContextMenu>
             </div>
           ))}
         </div>

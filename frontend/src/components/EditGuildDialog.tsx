@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Edit } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -13,37 +13,40 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useGuildStore } from '../stores/guildStore';
+import { useGuildStore, Guild } from '../stores/guildStore';
 
-interface CreateGuildDialogProps {
+interface EditGuildDialogProps {
+  guild: Guild;
   children?: React.ReactNode;
 }
 
-export function CreateGuildDialog({ children }: CreateGuildDialogProps) {
+export function EditGuildDialog({ guild, children }: EditGuildDialogProps) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [name, setName] = useState(guild.name);
+  const [description, setDescription] = useState(guild.description || '');
   const [isLoading, setIsLoading] = useState(false);
-  const { createGuild } = useGuildStore();
+  const { updateGuild } = useGuildStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim()) {
       return;
     }
 
     setIsLoading(true);
     try {
-      const result = await createGuild(name, description);
+      const result = await updateGuild(
+        guild.id,
+        name,
+        description || undefined
+      );
       if (result) {
-        // Reset form and close dialog
-        setName('');
-        setDescription('');
+        // Close dialog on success
         setOpen(false);
       }
     } catch (error) {
-      console.error('Failed to create guild:', error);
+      console.error('Failed to update guild:', error);
     } finally {
       setIsLoading(false);
     }
@@ -53,8 +56,8 @@ export function CreateGuildDialog({ children }: CreateGuildDialogProps) {
     setOpen(newOpen);
     if (!newOpen) {
       // Reset form when dialog closes
-      setName('');
-      setDescription('');
+      setName(guild.name);
+      setDescription(guild.description || '');
     }
   };
 
@@ -63,19 +66,19 @@ export function CreateGuildDialog({ children }: CreateGuildDialogProps) {
       <DialogTrigger asChild>
         {children || (
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
-            className="w-12 h-12 rounded-xl border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50 transition-all duration-200"
+            className="w-4 h-4 text-gray-400 hover:text-white"
           >
-            <Plus className="h-6 w-6 text-muted-foreground" />
+            <Edit className="h-4 w-4" />
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create New Workspace</DialogTitle>
+          <DialogTitle>Edit Workspace</DialogTitle>
           <DialogDescription>
-            Create a new workspace to organize your channels and conversations.
+            Update the workspace name and description.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -115,7 +118,7 @@ export function CreateGuildDialog({ children }: CreateGuildDialogProps) {
               Cancel
             </Button>
             <Button type="submit" disabled={!name.trim() || isLoading}>
-              {isLoading ? 'Creating...' : 'Create Workspace'}
+              {isLoading ? 'Updating...' : 'Update Workspace'}
             </Button>
           </DialogFooter>
         </form>

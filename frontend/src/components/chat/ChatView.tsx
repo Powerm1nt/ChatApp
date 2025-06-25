@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import MessagePanel from "./MessagePanel";
 import UserListPanel from "./UserListPanel";
 import { ChannelList } from "./ChannelList";
-import { useSocketStore } from "../../stores/socketStore";
 import { useGuildStore } from "../../stores/guildStore";
 
 interface ChatViewProps {
@@ -20,13 +19,7 @@ export default function ChatView({
   const params = useParams();
   const navigate = useNavigate();
   const { guild_id, channel_id, user_id, group_id } = params;
-  const { guilds, channels, fetchChannels } = useSocketStore();
-  const { getChannelById } = useGuildStore();
-
-  // Since we're now using short UUIDs everywhere, just return the short ID
-  const getShortId = (shortId: string) => {
-    return shortId;
-  };
+  const { getChannelsByGuildId, fetchChannels } = useGuildStore();
 
   // Determine chat type and context
   const chatType = guild_id
@@ -44,7 +37,7 @@ export default function ChatView({
   useEffect(() => {
     if (guild_id && !channel_id && showChannelList && guildId) {
       // First check if we already have channels for this guild
-      const existingChannels = channels.filter((c) => c.guildId === guildId);
+      const existingChannels = getChannelsByGuildId(guildId);
 
       if (existingChannels.length > 0) {
         const firstChannel = existingChannels[0];
@@ -53,7 +46,7 @@ export default function ChatView({
         // Fetch channels if we don't have them
         fetchChannels(guildId)
           .then(() => {
-            const guildChannels = channels.filter((c) => c.guildId === guildId);
+            const guildChannels = getChannelsByGuildId(guildId);
             if (guildChannels.length > 0) {
               const firstChannel = guildChannels[0];
               navigate(`/guild/${guild_id}/${firstChannel.id}`, {
@@ -69,7 +62,7 @@ export default function ChatView({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guild_id, channel_id, guildId]);
+  }, [guild_id, channel_id, guildId, getChannelsByGuildId]);
 
   return (
     <div className="flex h-screen bg-background">
