@@ -137,6 +137,14 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.logger.log(`Broadcasting channel deleted in guild ${guildId}: ${channelName}`);
   }
 
+  broadcastGuildUpdated(guildId: string, guild: any) {
+    this.server.to(`guild-${guildId}`).emit('guild-updated', {
+      guild,
+      timestamp: new Date(),
+    });
+    this.logger.log(`Broadcasting guild updated: ${guild.name} (${guildId})`);
+  }
+
 
   @SubscribeMessage('send-message')
   handleSendMessage(

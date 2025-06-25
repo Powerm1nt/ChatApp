@@ -79,6 +79,19 @@ class UpdateChannelDto {
   description?: string;
 }
 
+class UpdateGuildDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(50)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
 @Controller('api')
 export class ChatController {
   constructor(
@@ -149,6 +162,23 @@ export class ChatController {
       ...guild,
       channels: channelsWithStats,
     };
+  }
+
+  @Put('guilds/:guildId')
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(HttpStatus.OK)
+  async updateGuild(
+    @Param('guildId') guildId: string,
+    @Body(ValidationPipe) updateGuildDto: UpdateGuildDto,
+    @Request() req: any
+  ) {
+    const userId = req.user.id;
+    const updatedGuild = await this.chatService.updateGuild(guildId, userId, updateGuildDto);
+    
+    // Broadcast guild update to all guild members
+    this.chatGateway.broadcastGuildUpdated(guildId, updatedGuild);
+    
+    return updatedGuild;
   }
 
   @Get('guilds/:guildId/channels')

@@ -352,6 +352,39 @@ export class ChatService {
     return guild;
   }
 
+  async updateGuild(guildId: string, userId: string, updateData: { name?: string; description?: string }): Promise<Guild> {
+    // Check if user has access to the guild
+    const hasAccess = await this.checkUserGuildAccess(userId, guildId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this guild');
+    }
+
+    // Check if user has permission to update the guild (owner or admin)
+    const userGuild = await this.userGuildRepository.findOne({
+      user: userId,
+      guild: guildId,
+    });
+
+    if (!userGuild || (userGuild.role !== UserGuildRole.OWNER && userGuild.role !== UserGuildRole.ADMIN)) {
+      throw new ForbiddenException('You do not have permission to update this guild');
+    }
+
+    const guild = await this.guildRepository.findOne({ id: guildId });
+    if (!guild) {
+      throw new NotFoundException('Guild not found');
+    }
+
+    if (updateData.name !== undefined) {
+      guild.name = updateData.name;
+    }
+    if (updateData.description !== undefined) {
+      guild.description = updateData.description;
+    }
+
+    await this.guildRepository.persistAndFlush(guild);
+    return guild;
+  }
+
   async joinGuild(guildId: string, userId: string): Promise<UserGuild> {
     // Check if user is already a member
     const existingMembership = await this.userGuildRepository.findOne({
