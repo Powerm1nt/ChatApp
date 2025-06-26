@@ -26,7 +26,7 @@ import { toast } from "@/lib/toast";
 export function ProfileControl() {
   const { user, signOut, updateUserStatus } = useAuthStore();
   const [showProfileDialog, setShowProfileDialog] = useState(false);
-  
+
   // Get user status from user object, default to "online"
   const userStatus: UserStatus = user?.status || "online";
 
@@ -67,7 +67,7 @@ export function ProfileControl() {
 
   const statusOptions: { value: UserStatus; label: string; color: string }[] = [
     { value: "online", label: "Online", color: "text-green-500" },
-    { value: "do not disturb", label: "Do Not Disturb", color: "text-red-500" },
+    { value: "dnd", label: "Do Not Disturb", color: "text-red-500" },
     { value: "inactive", label: "Inactive", color: "text-yellow-500" },
     { value: "offline", label: "Offline", color: "text-gray-500" },
   ];
@@ -144,7 +144,12 @@ export function ProfileControl() {
                 {/* Status Submenu */}
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
-                    <Circle className={`mr-2 h-4 w-4 ${statusOptions.find(s => s.value === userStatus)?.color || "text-gray-500"} fill-current`} />
+                    <Circle
+                      className={`mr-2 h-4 w-4 ${
+                        statusOptions.find((s) => s.value === userStatus)
+                          ?.color || "text-gray-500"
+                      } fill-current`}
+                    />
                     Set Status
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
@@ -155,7 +160,9 @@ export function ProfileControl() {
                         className="flex items-center justify-between"
                       >
                         <div className="flex items-center">
-                          <Circle className={`mr-2 h-3 w-3 ${status.color} fill-current`} />
+                          <Circle
+                            className={`mr-2 h-3 w-3 ${status.color} fill-current`}
+                          />
                           <span>{status.label}</span>
                         </div>
                         {userStatus === status.value && (
@@ -165,9 +172,9 @@ export function ProfileControl() {
                     ))}
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
-                
+
                 <DropdownMenuSeparator />
-                
+
                 <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
                   <User className="mr-2 h-4 w-4" />
                   View Profile

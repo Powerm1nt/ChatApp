@@ -1,21 +1,20 @@
 import { Crown, Shield, User } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
 import { Badge } from "@/components/ui/badge";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { UserProfileCard } from "../UserProfileCard";
+import { UserStatus } from "../UserStatusIndicator";
 
 interface UserGroupProps {
   title: string;
   users: {
     id: string;
     username: string;
-    status: "online" | "away" | "offline";
+    status: UserStatus;
     role?: "owner" | "admin" | "member";
   }[];
   count: number;
@@ -58,52 +57,50 @@ export const UserGroup = ({ title, users, count }: UserGroupProps) => {
       </div>
       <div className="space-y-1">
         {users.map((user) => (
-          <TooltipProvider key={user.id}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50 cursor-pointer transition-colors">
-                  <div className="relative">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="text-xs select-none">
-                        {user.username.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div
-                      className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${getStatusColor(
-                        user.status
-                      )}`}
-                    />
-                  </div>
+          <DropdownMenu key={user.id}>
+            <DropdownMenuTrigger asChild>
+              <div className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50 cursor-pointer transition-colors">
+                <div className="relative">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs select-none">
+                      {user.username.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div
+                    className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${getStatusColor(
+                      user.status
+                    )}`}
+                  />
+                </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-1">
-                      <span className="text-sm font-medium truncate select-none">
-                        {user.username}
-                      </span>
-                      {user.role && (
-                        <div className="flex-shrink-0">
-                          {getRoleIcon(user.role)}
-                        </div>
-                      )}
-                    </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center space-x-1">
+                    <span className="text-sm font-medium truncate select-none">
+                      {user.username}
+                    </span>
+                    {user.role && (
+                      <div className="flex-shrink-0">
+                        {getRoleIcon(user.role)}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </TooltipTrigger>
-              <TooltipContent className="w-80 p-0" side="right">
-                <UserProfileCard
-                  user={{
-                    id: user.id,
-                    username: user.username,
-                    email: `${user.username.toLowerCase()}@example.com`,
-                    avatar: "",
-                    createdAt: new Date().toISOString(),
-                    isAnonymous: false,
-                  }}
-                  status={user.status}
-                />
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-80 p-0">
+              <UserProfileCard
+                user={{
+                  id: user.id,
+                  username: user.username,
+                  email: `${user.username.toLowerCase()}@example.com`,
+                  avatar: "",
+                  createdAt: new Date().toISOString(),
+                  isAnonymous: false,
+                }}
+                status={user.status}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
         ))}
       </div>
     </div>

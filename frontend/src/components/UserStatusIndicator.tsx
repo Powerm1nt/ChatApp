@@ -1,6 +1,6 @@
 import { Circle } from "lucide-react";
 
-export type UserStatus = "online" | "do not disturb" | "inactive" | "offline";
+export type UserStatus = "online" | "dnd" | "inactive" | "offline";
 
 interface UserStatusIndicatorProps {
   status: UserStatus;
@@ -8,16 +8,16 @@ interface UserStatusIndicatorProps {
   showLabel?: boolean;
 }
 
-export function UserStatusIndicator({ 
-  status, 
-  size = "sm", 
-  showLabel = false 
+export function UserStatusIndicator({
+  status,
+  size = "sm",
+  showLabel = false,
 }: UserStatusIndicatorProps) {
   const getStatusColor = (status: UserStatus) => {
     switch (status) {
       case "online":
         return "text-green-500";
-      case "do not disturb":
+      case "dnd":
         return "text-red-500";
       case "inactive":
         return "text-yellow-500";
@@ -32,7 +32,7 @@ export function UserStatusIndicator({
     switch (status) {
       case "online":
         return "Online";
-      case "do not disturb":
+      case "dnd":
         return "Do Not Disturb";
       case "inactive":
         return "Inactive";
@@ -58,8 +58,10 @@ export function UserStatusIndicator({
 
   return (
     <div className="flex items-center space-x-1">
-      <Circle 
-        className={`${getSizeClass(size)} ${getStatusColor(status)} fill-current`}
+      <Circle
+        className={`${getSizeClass(size)} ${getStatusColor(
+          status
+        )} fill-current`}
       />
       {showLabel && (
         <span className="text-xs text-muted-foreground">

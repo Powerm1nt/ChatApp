@@ -12,11 +12,11 @@ interface UserProfileCardProps {
   className?: string;
 }
 
-export function UserProfileCard({ 
-  user, 
-  status = "online", 
+export function UserProfileCard({
+  user,
+  status = "online",
   showDetails = true,
-  className 
+  className,
 }: UserProfileCardProps) {
   const getUserInitials = (username?: string, email?: string) => {
     if (username) {
@@ -64,40 +64,41 @@ export function UserProfileCard({
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2">
-              <h3 className="text-lg font-semibold truncate">{getDisplayName()}</h3>
+              <h3 className="text-lg font-semibold truncate">
+                {getDisplayName()}
+              </h3>
               {user.isAnonymous && (
                 <Badge variant="secondary" className="text-xs">
                   Guest
                 </Badge>
               )}
             </div>
-            <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-              <UserStatusIndicator status={status} size="sm" showLabel />
-            </div>
           </div>
         </div>
       </CardHeader>
-      
+
       {showDetails && (
         <CardContent className="space-y-3">
           <div className="flex items-center space-x-2 text-sm">
             <Mail className="h-4 w-4 text-muted-foreground" />
             <span className="truncate">{user.email}</span>
           </div>
-          
+
           <div className="flex items-center space-x-2 text-sm">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <span>Joined {formatDate(user.createdAt)}</span>
           </div>
-          
+
           <div className="flex items-center space-x-2 text-sm">
             <User className="h-4 w-4 text-muted-foreground" />
             <span>ID: {user.id.slice(0, 8)}...</span>
           </div>
-          
+
           <div className="flex items-center space-x-2 text-sm">
             <Shield className="h-4 w-4 text-muted-foreground" />
-            <span>{user.isAnonymous ? "Guest Account" : "Registered User"}</span>
+            <span>
+              {user.isAnonymous ? "Guest Account" : "Registered User"}
+            </span>
           </div>
         </CardContent>
       )}
