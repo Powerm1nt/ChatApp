@@ -53,7 +53,7 @@ export function ProfileControl() {
 
   return (
     <TooltipProvider>
-      <div className="p-2 bg-gray-800 border-t border-gray-700 w-full">
+      <div className="p-2 bg-gray-800 border-t border-gray-700 w-[19em]">
         <div className="flex items-center space-x-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -74,7 +74,11 @@ export function ProfileControl() {
                     {getDisplayName()}
                   </div>
                   <div className="text-xs text-gray-400 truncate flex items-center space-x-1">
-                    <UserStatusIndicator status={userStatus} size="sm" showLabel />
+                    <UserStatusIndicator
+                      status={userStatus}
+                      size="sm"
+                      showLabel
+                    />
                   </div>
                 </div>
               </div>
@@ -95,9 +99,15 @@ export function ProfileControl() {
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold truncate">{getDisplayName()}</h3>
+                    <h3 className="text-lg font-semibold truncate">
+                      {getDisplayName()}
+                    </h3>
                     <div className="flex items-center space-x-1 text-sm opacity-90">
-                      <UserStatusIndicator status={userStatus} size="sm" showLabel />
+                      <UserStatusIndicator
+                        status={userStatus}
+                        size="sm"
+                        showLabel
+                      />
                     </div>
                     {user.email && (
                       <div className="text-xs opacity-75 truncate mt-1">
@@ -107,7 +117,7 @@ export function ProfileControl() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Menu Items */}
               <div className="p-1">
                 <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
@@ -123,14 +133,17 @@ export function ProfileControl() {
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="text-red-600 focus:text-red-600"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign Out
                 </DropdownMenuItem>
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

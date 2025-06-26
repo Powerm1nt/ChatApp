@@ -73,22 +73,23 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
     return params.channel_id === channelId;
   };
 
-
-
   return (
     <div className="w-60 bg-gray-800 flex flex-col h-full">
       {/* Guild Header */}
       <div className="p-4 border-b border-gray-700 sticky top-0 z-10 bg-gray-800">
-        <DropdownMenu open={isGuildDropdownOpen} onOpenChange={setIsGuildDropdownOpen}>
+        <DropdownMenu
+          open={isGuildDropdownOpen}
+          onOpenChange={setIsGuildDropdownOpen}
+        >
           <DropdownMenuTrigger asChild>
             <div className="flex items-center justify-between cursor-pointer hover:bg-gray-700 rounded px-2 py-1 -mx-2 -my-1 transition-colors">
               <h2 className="text-white font-semibold text-lg truncate">
                 {currentGuild?.name ?? "Loading..."}
               </h2>
-              <ChevronDown 
+              <ChevronDown
                 className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
-                  isGuildDropdownOpen ? 'rotate-180' : ''
-                }`} 
+                  isGuildDropdownOpen ? "rotate-180" : ""
+                }`}
               />
             </div>
           </DropdownMenuTrigger>
@@ -96,19 +97,22 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
             {currentGuild && (
               <>
                 <GuildSettingsDialog guild={currentGuild}>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <Settings className="mr-2 h-4 w-4" />
-                      Server Settings
-                    </DropdownMenuItem>
-                  </GuildSettingsDialog>
-                <GuildStatusDialog guildId={currentGuild.id} guildName={currentGuild.name}>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                  <DropdownMenuItem>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Server Settings
+                  </DropdownMenuItem>
+                </GuildSettingsDialog>
+                <GuildStatusDialog
+                  guildId={currentGuild.id}
+                  guildName={currentGuild.name}
+                >
+                  <DropdownMenuItem>
                     <Activity className="mr-2 h-4 w-4" />
                     Server Status
                   </DropdownMenuItem>
                 </GuildStatusDialog>
                 <DeleteGuildDialog guild={currentGuild}>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                  <DropdownMenuItem>
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete Server
                   </DropdownMenuItem>
@@ -156,11 +160,13 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
                       onClick={() => handleChannelClick(channel.id)}
                     >
                       <Hash className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span className={`truncate ${
-                        isChannelActive(channel.id)
-                          ? "text-white"
-                          : "text-gray-300"
-                      }`}>
+                      <span
+                        className={`truncate ${
+                          isChannelActive(channel.id)
+                            ? "text-white"
+                            : "text-gray-300"
+                        }`}
+                      >
                         {channel.name}
                       </span>
                     </div>

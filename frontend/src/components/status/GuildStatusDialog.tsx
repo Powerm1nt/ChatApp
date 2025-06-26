@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Activity, Users, Hash, Calendar, Database, Signal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -65,7 +65,13 @@ export function GuildStatusDialog({ guildId, guildName, children }: GuildStatusD
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        {children}
+        {React.cloneElement(children as React.ReactElement, {
+          onClick: (e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleOpenChange(true);
+          }
+        })}
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>

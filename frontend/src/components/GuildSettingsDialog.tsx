@@ -70,7 +70,15 @@ export function GuildSettingsDialog({ guild, children }: GuildSettingsDialogProp
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogTrigger asChild>
-          {children || (
+          {children ? (
+            React.cloneElement(children as React.ReactElement, {
+              onClick: (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen(true);
+              }
+            })
+          ) : (
             <Button
               variant="ghost"
               size="icon"

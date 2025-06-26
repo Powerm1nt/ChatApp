@@ -106,20 +106,24 @@ export function GuildSidebar() {
                       <p>{guild.name}</p>
                     </TooltipContent>
                   </Tooltip>
-                  <ContextMenuContent>                    <GuildSettingsDialog guild={guild}>
-                        <ContextMenuItem onSelect={(e) => e.preventDefault()}>
-                          <Settings className="mr-2 h-4 w-4" />
-                          Server Settings
-                        </ContextMenuItem>
-                      </GuildSettingsDialog>
-                    <GuildStatusDialog guildId={guild.id} guildName={guild.name}>
-                      <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                  <ContextMenuContent>
+                    <GuildSettingsDialog guild={guild}>
+                      <ContextMenuItem>
+                        <Settings className="mr-2 h-4 w-4" />
+                        Server Settings
+                      </ContextMenuItem>
+                    </GuildSettingsDialog>
+                    <GuildStatusDialog
+                      guildId={guild.id}
+                      guildName={guild.name}
+                    >
+                      <ContextMenuItem>
                         <Activity className="mr-2 h-4 w-4" />
                         Server Status
                       </ContextMenuItem>
                     </GuildStatusDialog>
                     <DeleteGuildDialog guild={guild}>
-                      <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                      <ContextMenuItem>
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete Server
                       </ContextMenuItem>
