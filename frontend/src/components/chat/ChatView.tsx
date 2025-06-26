@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import MessagePanel from "./MessagePanel";
 import UserListPanel from "./UserListPanel";
 import { ChannelList } from "./ChannelList";
+import { DMPanel } from "./DMPanel";
 import { useGuildStore } from "../../stores/guildStore";
 
 interface ChatViewProps {
@@ -66,7 +67,14 @@ export default function ChatView({
 
   return (
     <div className="flex h-full bg-background">
-      {/* Channel List Panel - Left */}
+      {/* DM Panel - Left (for direct and group chats) */}
+      {(chatType === "direct" || chatType === "group") && (
+        <div className="flex-shrink-0">
+          <DMPanel />
+        </div>
+      )}
+
+      {/* Channel List Panel - Left (for guild chats) */}
       {showChannelList && guild_id && (
         <div className="flex-shrink-0">
           <ChannelList guildId={guildId} />

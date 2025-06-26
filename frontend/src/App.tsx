@@ -6,9 +6,9 @@ import {
 } from "react-router-dom";
 import { useEffect } from "react";
 import LoginPage from "./pages/LoginPage";
-import HomePage from "./pages/HomePage";
 import SettingsPage from "./pages/SettingsPage";
 import ChatView from "./components/chat/ChatView";
+import DMView from "./components/chat/DMView";
 import { AppLayout } from "./components/layout/AppLayout";
 import { useAuthStore } from "./stores/authStore";
 import { useSocketStore } from "./stores/socketStore";
@@ -50,7 +50,7 @@ function App() {
           element={
             <ProtectedRoute>
               <AppLayout>
-                <HomePage />
+                <DMView />
               </AppLayout>
             </ProtectedRoute>
           }
