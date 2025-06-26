@@ -5,6 +5,7 @@ import { EntityRepository, EntityManager } from "@mikro-orm/core";
 import * as bcrypt from "bcryptjs";
 import { User } from "../entities";
 import { JwtPayload, AuthResponse } from "./auth.config";
+import { UserStatus } from "../types/user-status.type";
 
 @Injectable()
 export class AuthService {
@@ -60,7 +61,6 @@ export class AuthService {
     password: string,
     username?: string
   ): Promise<AuthResponse> {
-    // Check if user already exists
     const existingUser = await this.userRepository.findOne({ email });
     if (existingUser) {
       throw new UnauthorizedException("User with this email already exists");
@@ -117,7 +117,7 @@ export class AuthService {
     const user = new User();
     user.email = `anonymous_${user.id}@temp.com`;
     user.username = `Guest_${user.id.substring(0, 8)}`;
-    user.password = ""; // No password for anonymous users
+    user.password = "";
     user.isAnonymous = true;
 
     await this.userRepository.persistAndFlush(user);
@@ -147,7 +147,6 @@ export class AuthService {
     return null;
   }
 
-  // Get all users (for debugging purposes)
   async getAllUsers(): Promise<Omit<User, "password">[]> {
     const users = await this.userRepository.findAll();
     return users.map((user) => {
@@ -156,10 +155,9 @@ export class AuthService {
     });
   }
 
-  // Update user status
   async updateUserStatus(
     userId: string,
-    status: "online" | "dnd" | "inactive" | "offline"
+    status: UserStatus
   ): Promise<Omit<User, "password">> {
     const user = await this.userRepository.findOne({ id: userId });
     if (!user) {

@@ -20,6 +20,7 @@ import {
   IsOptional,
   IsIn,
 } from "class-validator";
+import { UserStatus, USER_STATUS_VALUES } from "../types/user-status.type";
 
 class SignUpDto {
   @IsEmail()
@@ -44,8 +45,8 @@ class SignInDto {
 
 class UpdateStatusDto {
   @IsString()
-  @IsIn(["online", "dnd", "inactive", "offline"])
-  status: "online" | "dnd" | "inactive" | "offline";
+  @IsIn(USER_STATUS_VALUES)
+  status: UserStatus;
 }
 
 @Controller("api/auth")

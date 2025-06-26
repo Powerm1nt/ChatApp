@@ -13,6 +13,7 @@ import { FriendRequest } from "./friend-request.entity";
 import { Group } from "./group.entity";
 import { GroupMessage } from "./group-message.entity";
 import { DirectMessage } from "./direct-message.entity";
+import { UserStatus } from "../types/user-status.type";
 
 @Entity()
 export class User {
@@ -35,8 +36,7 @@ export class User {
   isAnonymous: boolean = false;
 
   @Property({ default: "online" })
-  status: "online" | "dnd" | "inactive" | "offline" = "online";
-
+  status: UserStatus = "online";
   @Property({ type: "json", default: "[]" })
   friends: string[] = [];
 
