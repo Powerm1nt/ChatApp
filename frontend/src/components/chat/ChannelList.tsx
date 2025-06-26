@@ -76,7 +76,7 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
 
 
   return (
-    <div className="w-60 bg-gray-800 flex flex-col h-screen">
+    <div className="w-60 bg-gray-800 flex flex-col h-full">
       {/* Guild Header */}
       <div className="p-4 border-b border-gray-700 sticky top-0 z-10 bg-gray-800">
         <DropdownMenu open={isGuildDropdownOpen} onOpenChange={setIsGuildDropdownOpen}>

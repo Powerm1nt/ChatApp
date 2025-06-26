@@ -9,7 +9,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       <GuildSidebar />
-      <div className="flex-1 overflow-auto ml-16">
+      <div className="flex-1 flex flex-col ml-16 h-full">
         {children}
       </div>
     </div>

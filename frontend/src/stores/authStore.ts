@@ -12,6 +12,7 @@ export interface User {
   username?: string;
   createdAt: string;
   isAnonymous?: boolean;
+  avatar?: string;
 }
 
 export interface AuthResponse {

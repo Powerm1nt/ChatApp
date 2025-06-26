@@ -65,7 +65,7 @@ export default function ChatView({
   }, [guild_id, channel_id, guildId, getChannelsByGuildId]);
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-full bg-background">
       {/* Channel List Panel - Left */}
       {showChannelList && guild_id && (
         <div className="flex-shrink-0">

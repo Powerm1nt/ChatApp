@@ -19,6 +19,7 @@ import { CreateGuildDialog } from "../CreateGuildDialog";
 import { GuildStatusDialog } from "../status/GuildStatusDialog";
 import { GuildSettingsDialog } from "../GuildSettingsDialog";
 import { DeleteGuildDialog } from "../DeleteGuildDialog";
+import { ProfileControl } from "../ProfileControl";
 
 export function GuildSidebar() {
   const navigate = useNavigate();
@@ -48,102 +49,108 @@ export function GuildSidebar() {
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col w-16 bg-gray-900 h-screen py-3 space-y-2 fixed left-0 top-0 z-10">
-        {/* App Logo / Home Button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={isActive("/me") ? "secondary" : "ghost"}
-              size="icon"
-              className={`w-12 h-12 mx-2 rounded-xl transition-all duration-200 ${
-                isActive("/me")
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg"
-              }`}
-              onClick={() => navigate("/me")}
-            >
-              <Home className="h-6 w-6" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>Home</p>
-          </TooltipContent>
-        </Tooltip>
+      <div className="flex flex-col w-16 bg-gray-900 h-screen fixed left-0 top-0 z-10">
+        {/* Main Content */}
+        <div className="flex flex-col py-3 space-y-2 flex-1">
+          {/* App Logo / Home Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={isActive("/me") ? "secondary" : "ghost"}
+                size="icon"
+                className={`w-12 h-12 mx-2 rounded-xl transition-all duration-200 ${
+                  isActive("/me")
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg"
+                }`}
+                onClick={() => navigate("/me")}
+              >
+                <Home className="h-6 w-6" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Home</p>
+            </TooltipContent>
+          </Tooltip>
 
-        {/* Separator */}
-        <div className="w-8 h-0.5 bg-gray-600 mx-auto rounded-full" />
+          {/* Separator */}
+          <div className="w-8 h-0.5 bg-gray-600 mx-auto rounded-full" />
 
-        {/* Guild List */}
-        <div className="flex flex-col space-y-2">
-          {guilds.map((guild) => (
-            <div key={guild.id} className="relative group">
-              <ContextMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <ContextMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`w-12 h-12 mx-2 rounded-xl transition-all duration-200 ${
-                          isGuildActive(guild.id)
-                            ? "bg-primary text-primary-foreground rounded-lg"
-                            : "bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg"
-                        }`}
-                        onClick={() => handleGuildClick(guild.id)}
-                      >
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback className="text-xs font-semibold bg-transparent">
-                            {getGuildInitials(guild.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                      </Button>
-                    </ContextMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p>{guild.name}</p>
-                  </TooltipContent>
-                </Tooltip>
-                <ContextMenuContent>                    <GuildSettingsDialog guild={guild}>
+          {/* Guild List */}
+          <div className="flex flex-col space-y-2">
+            {guilds.map((guild) => (
+              <div key={guild.id} className="relative group">
+                <ContextMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <ContextMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`w-12 h-12 mx-2 rounded-xl transition-all duration-200 ${
+                            isGuildActive(guild.id)
+                              ? "bg-primary text-primary-foreground rounded-lg"
+                              : "bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg"
+                          }`}
+                          onClick={() => handleGuildClick(guild.id)}
+                        >
+                          <Avatar className="w-8 h-8">
+                            <AvatarFallback className="text-xs font-semibold bg-transparent">
+                              {getGuildInitials(guild.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                        </Button>
+                      </ContextMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      <p>{guild.name}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <ContextMenuContent>                    <GuildSettingsDialog guild={guild}>
+                        <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                          <Settings className="mr-2 h-4 w-4" />
+                          Server Settings
+                        </ContextMenuItem>
+                      </GuildSettingsDialog>
+                    <GuildStatusDialog guildId={guild.id} guildName={guild.name}>
                       <ContextMenuItem onSelect={(e) => e.preventDefault()}>
-                        <Settings className="mr-2 h-4 w-4" />
-                        Server Settings
+                        <Activity className="mr-2 h-4 w-4" />
+                        Server Status
                       </ContextMenuItem>
-                    </GuildSettingsDialog>
-                  <GuildStatusDialog guildId={guild.id} guildName={guild.name}>
-                    <ContextMenuItem onSelect={(e) => e.preventDefault()}>
-                      <Activity className="mr-2 h-4 w-4" />
-                      Server Status
-                    </ContextMenuItem>
-                  </GuildStatusDialog>
-                  <DeleteGuildDialog guild={guild}>
-                    <ContextMenuItem onSelect={(e) => e.preventDefault()}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete Server
-                    </ContextMenuItem>
-                  </DeleteGuildDialog>
-                </ContextMenuContent>
-              </ContextMenu>
-            </div>
-          ))}
+                    </GuildStatusDialog>
+                    <DeleteGuildDialog guild={guild}>
+                      <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Server
+                      </ContextMenuItem>
+                    </DeleteGuildDialog>
+                  </ContextMenuContent>
+                </ContextMenu>
+              </div>
+            ))}
+          </div>
+
+          {/* Add Guild Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <CreateGuildDialog>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-12 h-12 mx-2 rounded-xl border-2 border-dashed border-gray-600 hover:border-gray-500 bg-transparent hover:bg-gray-700 text-gray-400 hover:text-green-400 transition-all duration-200"
+                >
+                  <Plus className="h-6 w-6" />
+                </Button>
+              </CreateGuildDialog>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Add a Server</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
-        {/* Add Guild Button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <CreateGuildDialog>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-12 h-12 mx-2 rounded-xl border-2 border-dashed border-gray-600 hover:border-gray-500 bg-transparent hover:bg-gray-700 text-gray-400 hover:text-green-400 transition-all duration-200"
-              >
-                <Plus className="h-6 w-6" />
-              </Button>
-            </CreateGuildDialog>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>Add a Server</p>
-          </TooltipContent>
-        </Tooltip>
+        {/* Profile Control at Bottom */}
+        <ProfileControl />
       </div>
     </TooltipProvider>
   );
