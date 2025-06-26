@@ -1,41 +1,107 @@
-
-import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
-import { MessageCircle, Users, UserPlus, Settings, LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import AddFriendDialog from '../AddFriendDialog';
+import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useAuthStore } from "../../stores/authStore";
+import { useFriendsStore } from "../../stores/friendsStore";
+import { MessageCircle, Users, UserPlus, Settings, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import AddFriendDialog from "../AddFriendDialog";
+import { toast } from "sonner";
 
 export default function DMContent() {
   const navigate = useNavigate();
   const { user, signOut } = useAuthStore();
+  const {
+    friends,
+    receivedRequests,
+    isLoading,
+    fetchFriends,
+    fetchReceivedRequests,
+    acceptFriendRequest,
+    declineFriendRequest,
+  } = useFriendsStore();
+
+  // Fetch friend requests and friends on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        await Promise.all([fetchFriends(), fetchReceivedRequests()]);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast.error("Failed to load friend data");
+      }
+    };
+
+    fetchData();
+  }, [fetchFriends, fetchReceivedRequests]);
 
   const handleSignOut = () => {
     signOut();
-    navigate('/login');
+    navigate("/login");
   };
 
-  // Placeholder data - these would come from your backend/store
-  const friendRequests = [
-    { id: '1', username: 'David', mutualFriends: 3 },
-    { id: '2', username: 'Emma', mutualFriends: 1 },
-  ];
+  const handleAcceptRequest = async (requestId: string) => {
+    try {
+      const result = await acceptFriendRequest(requestId);
+      if (!result.error) {
+        toast.success("Friend request accepted");
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      console.error("Error accepting friend request:", error);
+      toast.error("Failed to accept friend request");
+    }
+  };
 
-  const friends = [
-    { id: '1', username: 'Alice', status: 'online' },
-    { id: '2', username: 'Bob', status: 'away' },
-    { id: '3', username: 'Charlie', status: 'offline' },
-    { id: '4', username: 'Diana', status: 'online' },
-  ];
+  const handleDeclineRequest = async (requestId: string) => {
+    try {
+      const result = await declineFriendRequest(requestId);
+      if (!result.error) {
+        toast.success("Friend request declined");
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      console.error("Error declining friend request:", error);
+      toast.error("Failed to decline friend request");
+    }
+  };
+
+  const handleFriendRequestSent = async (username: string) => {
+    try {
+      const result = await useFriendsStore
+        .getState()
+        .sendFriendRequest(username);
+      if (!result.error) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error: any) {
+      console.error("Error sending friend request:", error);
+      toast.error("Failed to send friend request");
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'online': return 'bg-green-500';
-      case 'away': return 'bg-yellow-500';
-      case 'offline': return 'bg-gray-400';
-      default: return 'bg-gray-400';
+      case "online":
+        return "bg-green-500";
+      case "away":
+        return "bg-yellow-500";
+      case "offline":
+        return "bg-gray-400";
+      default:
+        return "bg-gray-400";
     }
   };
 
@@ -45,28 +111,16 @@ export default function DMContent() {
       <div className="border-b bg-card sticky top-0 z-10">
         <div className="px-6 py-4">
           <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold">Home</h1>
-              <Badge variant="secondary">
-                Welcome back, {user?.username || user?.email}!
-              </Badge>
-            </div>
             <div className="flex items-center space-x-2">
-              <AddFriendDialog onFriendRequestSent={(username) => {
-                console.log(`Friend request sent to ${username}`);
-              }} />
+              <AddFriendDialog onFriendRequestSent={handleFriendRequestSent} />
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/settings')}
+                onClick={() => navigate("/settings")}
               >
                 <Settings className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSignOut}
-              >
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
@@ -84,37 +138,47 @@ export default function DMContent() {
                 <UserPlus className="h-5 w-5" />
                 <span>Friend Requests</span>
               </CardTitle>
-              <CardDescription>
-                Pending friend requests
-              </CardDescription>
+              <CardDescription>Pending friend requests</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {friendRequests.length === 0 ? (
+              {isLoading.receivedRequests ? (
+                <p className="text-muted-foreground text-center py-4">
+                  Loading friend requests...
+                </p>
+              ) : receivedRequests.length === 0 ? (
                 <p className="text-muted-foreground text-center py-4">
                   No pending friend requests
                 </p>
               ) : (
-                friendRequests.map((request) => (
+                receivedRequests.map((request) => (
                   <div
                     key={request.id}
                     className="flex items-center space-x-3 p-3 rounded-lg border"
                   >
                     <Avatar className="h-10 w-10">
                       <AvatarFallback>
-                        {request.username.charAt(0).toUpperCase()}
+                        {request.sender.username.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium">{request.username}</p>
+                      <p className="font-medium">{request.sender.username}</p>
                       <p className="text-sm text-muted-foreground">
-                        {request.mutualFriends} mutual friends
+                        Sent you a friend request
                       </p>
                     </div>
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="default">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => handleAcceptRequest(request.id)}
+                      >
                         Accept
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDeclineRequest(request.id)}
+                      >
                         Decline
                       </Button>
                     </div>
@@ -131,12 +195,14 @@ export default function DMContent() {
                 <Users className="h-5 w-5" />
                 <span>Friends</span>
               </CardTitle>
-              <CardDescription>
-                Your friends list
-              </CardDescription>
+              <CardDescription>Your friends list</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {friends.length === 0 ? (
+              {isLoading.friends ? (
+                <p className="text-muted-foreground text-center py-4">
+                  Loading friends...
+                </p>
+              ) : friends.length === 0 ? (
                 <p className="text-muted-foreground text-center py-4">
                   No friends yet
                 </p>
@@ -153,7 +219,11 @@ export default function DMContent() {
                           {friend.username.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-background ${getStatusColor(friend.status)}`} />
+                      <div
+                        className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-background ${getStatusColor(
+                          friend.status
+                        )}`}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium">{friend.username}</p>

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { UserPlus, Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import React, { useState } from "react";
+import { UserPlus, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -11,19 +11,22 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { useAuthStore } from '@/stores/authStore';
+} from "@/components/ui/dialog";
+import { useAuthStore } from "@/stores/authStore";
+import { useFriendsStore } from "@/stores/friendsStore";
+import { toast } from "sonner";
 
 interface AddFriendDialogProps {
   onFriendRequestSent?: (username: string) => void;
 }
 
-export default function AddFriendDialog({ onFriendRequestSent }: AddFriendDialogProps) {
+export default function AddFriendDialog({
+  onFriendRequestSent,
+}: AddFriendDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const { sendFriendRequest, resetErrors } = useFriendsStore();
   const { user } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,36 +34,25 @@ export default function AddFriendDialog({ onFriendRequestSent }: AddFriendDialog
     if (!username.trim()) return;
 
     setIsLoading(true);
-    setError('');
-    setSuccess('');
+    resetErrors();
 
     try {
-      const response = await fetch('http://localhost:3001/api/friends/request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({ username: username.trim() }),
-      });
+      const result = await sendFriendRequest(username.trim());
 
-      const data = await response.json();
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(result.message || `Friend request sent to ${username}!`);
+        setUsername("");
+        onFriendRequestSent?.(username);
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to send friend request');
+        // Close dialog after a short delay
+        setTimeout(() => {
+          setIsOpen(false);
+        }, 500);
       }
-
-      setSuccess(`Friend request sent to ${username}!`);
-      setUsername('');
-      onFriendRequestSent?.(username);
-      
-      // Close dialog after a short delay
-      setTimeout(() => {
-        setIsOpen(false);
-        setSuccess('');
-      }, 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send friend request');
+    } catch (err: any) {
+      toast.error("Failed to send friend request");
     } finally {
       setIsLoading(false);
     }
@@ -69,9 +61,8 @@ export default function AddFriendDialog({ onFriendRequestSent }: AddFriendDialog
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      setUsername('');
-      setError('');
-      setSuccess('');
+      setUsername("");
+      resetErrors();
     }
   };
 
@@ -93,7 +84,7 @@ export default function AddFriendDialog({ onFriendRequestSent }: AddFriendDialog
             Send a friend request by entering their username.
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
@@ -111,18 +102,6 @@ export default function AddFriendDialog({ onFriendRequestSent }: AddFriendDialog
             </div>
           </div>
 
-          {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="text-sm text-green-600 bg-green-50 p-3 rounded-md">
-              {success}
-            </div>
-          )}
-
           <DialogFooter className="flex space-x-2">
             <Button
               type="button"
@@ -132,11 +111,8 @@ export default function AddFriendDialog({ onFriendRequestSent }: AddFriendDialog
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={!username.trim() || isLoading}
-            >
-              {isLoading ? 'Sending...' : 'Send Request'}
+            <Button type="submit" disabled={!username.trim() || isLoading}>
+              {isLoading ? "Sending..." : "Send Request"}
             </Button>
           </DialogFooter>
         </form>
