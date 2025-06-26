@@ -13,6 +13,7 @@ export interface User {
   createdAt: string;
   isAnonymous?: boolean;
   avatar?: string;
+  status?: "online" | "do not disturb" | "inactive" | "offline";
 }
 
 export interface AuthResponse {
@@ -30,6 +31,7 @@ interface AuthState {
   signInAnonymous: () => Promise<{ error?: string }>;
   checkAuth: () => Promise<void>;
   setLoading: (loading: boolean) => void;
+  updateUserStatus: (status: "online" | "do not disturb" | "inactive" | "offline") => Promise<{ error?: string }>;
 }
 
 export const useAuthStore = create<AuthState>()((set, get) => {
@@ -132,6 +134,31 @@ export const useAuthStore = create<AuthState>()((set, get) => {
         set({ user: null, token: null });
       } catch (error) {
         console.error("Sign out failed:", error);
+      }
+    },
+
+    updateUserStatus: async (status: "online" | "do not disturb" | "inactive" | "offline") => {
+      try {
+        const currentUser = get().user;
+        if (!currentUser) {
+          return { error: "User not authenticated" };
+        }
+
+        // Update local state immediately for better UX
+        set({ user: { ...currentUser, status } });
+
+        // Update status on backend
+        const response = await axios.patch('/auth/status', { status });
+        
+        return {};
+      } catch (error: any) {
+        // Revert local state on error
+        const currentUser = get().user;
+        if (currentUser) {
+          set({ user: { ...currentUser, status: currentUser.status || "online" } });
+        }
+        const errorMessage = error.response?.data?.message || "Failed to update status";
+        return { error: errorMessage };
       }
     },
   };

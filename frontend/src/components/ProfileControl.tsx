@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings, LogOut, User, Edit } from "lucide-react";
+import { Settings, LogOut, User, Edit, Circle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -14,15 +14,21 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore } from "@/stores/authStore";
 import { UserProfileDialog } from "./UserProfileDialog";
 import { UserStatusIndicator, UserStatus } from "./UserStatusIndicator";
+import { toast } from "@/lib/toast";
 
 export function ProfileControl() {
-  const { user, signOut } = useAuthStore();
+  const { user, signOut, updateUserStatus } = useAuthStore();
   const [showProfileDialog, setShowProfileDialog] = useState(false);
-  const [userStatus] = useState<UserStatus>("online"); // TODO: Implement dynamic status
+  
+  // Get user status from user object, default to "online"
+  const userStatus: UserStatus = user?.status || "online";
 
   if (!user) return null;
 
@@ -50,6 +56,21 @@ export function ProfileControl() {
   const handleSignOut = async () => {
     await signOut();
   };
+
+  const handleStatusChange = async (newStatus: UserStatus) => {
+    const result = await updateUserStatus(newStatus);
+    if (result.error) {
+      console.error("Failed to update status:", result.error);
+      toast.error("Failed to update status", result.error);
+    }
+  };
+
+  const statusOptions: { value: UserStatus; label: string; color: string }[] = [
+    { value: "online", label: "Online", color: "text-green-500" },
+    { value: "do not disturb", label: "Do Not Disturb", color: "text-red-500" },
+    { value: "inactive", label: "Inactive", color: "text-yellow-500" },
+    { value: "offline", label: "Offline", color: "text-gray-500" },
+  ];
 
   return (
     <TooltipProvider>
@@ -120,6 +141,33 @@ export function ProfileControl() {
 
               {/* Menu Items */}
               <div className="p-1">
+                {/* Status Submenu */}
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Circle className={`mr-2 h-4 w-4 ${statusOptions.find(s => s.value === userStatus)?.color || "text-gray-500"} fill-current`} />
+                    Set Status
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {statusOptions.map((status) => (
+                      <DropdownMenuItem
+                        key={status.value}
+                        onClick={() => handleStatusChange(status.value)}
+                        className="flex items-center justify-between"
+                      >
+                        <div className="flex items-center">
+                          <Circle className={`mr-2 h-3 w-3 ${status.color} fill-current`} />
+                          <span>{status.label}</span>
+                        </div>
+                        {userStatus === status.value && (
+                          <Check className="h-4 w-4" />
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                
+                <DropdownMenuSeparator />
+                
                 <DropdownMenuItem onClick={() => setShowProfileDialog(true)}>
                   <User className="mr-2 h-4 w-4" />
                   View Profile

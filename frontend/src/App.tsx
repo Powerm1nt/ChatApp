@@ -32,24 +32,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
-  const { user } = useAuthStore();
-  const { initializeSocket, disconnectSocket } = useSocketStore();
+  const { disconnectSocket } = useSocketStore();
 
-  // Initialize socket when user is authenticated
+  // Cleanup socket on app unmount
   useEffect(() => {
-    if (user) {
-      console.log('User authenticated, initializing socket connection...');
-      initializeSocket();
-    } else {
-      console.log('User not authenticated, disconnecting socket...');
-      disconnectSocket();
-    }
-
-    // Cleanup socket on unmount
     return () => {
       disconnectSocket();
     };
-  }, [user, initializeSocket, disconnectSocket]);
+  }, [disconnectSocket]);
 
   return (
     <Router>

@@ -2,6 +2,7 @@ import {
   Controller, 
   Post, 
   Get, 
+  Patch,
   Body, 
   UseGuards, 
   Request,
@@ -12,7 +13,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthResponse } from './auth.config';
-import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsIn } from 'class-validator';
 
 class SignUpDto {
   @IsEmail()
@@ -33,6 +34,12 @@ class SignInDto {
 
   @IsString()
   password: string;
+}
+
+class UpdateStatusDto {
+  @IsString()
+  @IsIn(['online', 'do not disturb', 'inactive', 'offline'])
+  status: 'online' | 'do not disturb' | 'inactive' | 'offline';
 }
 
 @Controller('api/auth')
@@ -72,5 +79,15 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   async getAllUsers() {
     return this.authService.getAllUsers();
+  }
+
+  @Patch('status')
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(HttpStatus.OK)
+  async updateStatus(
+    @Request() req: any,
+    @Body(ValidationPipe) updateStatusDto: UpdateStatusDto
+  ) {
+    return this.authService.updateUserStatus(req.user.id, updateStatusDto.status);
   }
 }

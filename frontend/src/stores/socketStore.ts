@@ -44,6 +44,7 @@ export interface Channel {
 interface SocketState {
   socket: Socket | null;
   isConnected: boolean;
+  isInitializing: boolean;
   messages: ChatMessage[];
   roomUsers: User[];
   guilds: Guild[];
@@ -149,6 +150,7 @@ export interface UserStatus {
 export const useSocketStore = create<SocketState>()((set, get) => ({
   socket: null,
   isConnected: false,
+  isInitializing: false,
   messages: [],
   roomUsers: [],
   guilds: [],
@@ -184,36 +186,106 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
 
   initializeSocket: () => {
     const { user } = useAuthStore.getState();
-    const { socket, disconnectSocket } = get();
+    const { socket, isInitializing, isConnected } = get();
 
-    if (user && !socket) {
+    console.log("Socket initialization attempt:", { 
+      hasUser: !!user, 
+      hasSocket: !!socket, 
+      isInitializing,
+      isConnected
+    });
+
+    // Prevent duplicate socket initialization
+    if (!user) {
+      console.log("Socket initialization skipped: No user authenticated");
+      return;
+    }
+
+    if (isInitializing) {
+      console.log("Socket initialization skipped: Already initializing");
+      return;
+    }
+
+    // If socket already exists and is connected, don't create a new one
+    if (socket && isConnected) {
+      console.log("Socket already exists and is connected, skipping initialization");
+      return;
+    }
+
+    // If socket exists but is not connected, disconnect it first
+    if (socket && !isConnected) {
+      console.log("Disconnecting existing socket before creating new one");
+      socket.disconnect();
+      set({ socket: null });
+    }
+
+    console.log("Initializing socket connection...");
+    set({ isInitializing: true });
+
+    try {
       const socketUrl =
         import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
+      console.log("Connecting to socket URL:", socketUrl);
+      
       const newSocket = io(socketUrl, {
-        transports: ["websocket"],
+        transports: ["websocket", "polling"],
+        timeout: 20000,
+        forceNew: true,
+        autoConnect: true,
       });
+
+      // Set socket immediately so components can access it
+      set({ socket: newSocket });
 
       newSocket.on("connect", () => {
-        console.log("Connected to server");
-        set({ isConnected: true });
+        console.log("✅ Socket connected to server successfully");
+        set({ isConnected: true, isInitializing: false });
       });
 
-      newSocket.on("disconnect", () => {
-        console.log("Disconnected from server");
+      newSocket.on("disconnect", (reason) => {
+        console.log("❌ Socket disconnected from server:", reason);
         set({ isConnected: false });
+        
+        // Auto-reconnect on unexpected disconnections (not manual disconnects)
+        if (reason !== "io client disconnect" && reason !== "io server disconnect") {
+          console.log("🔄 Attempting to reconnect...");
+          setTimeout(() => {
+            const { user: currentUser } = useAuthStore.getState();
+            if (currentUser && !get().isConnected) {
+              get().initializeSocket();
+            }
+          }, 2000);
+        }
+      });
+
+      newSocket.on("connect_error", (error) => {
+        console.error("❌ Socket connection error:", error);
+        set({ isConnected: false, isInitializing: false });
+        
+        // Retry connection after a delay
+        setTimeout(() => {
+          const { user: currentUser } = useAuthStore.getState();
+          if (currentUser && !get().isConnected && !get().isInitializing) {
+            console.log("🔄 Retrying socket connection...");
+            get().initializeSocket();
+          }
+        }, 3000);
       });
 
       newSocket.on("new-message", (message: ChatMessage) => {
+        console.log("📨 Received new message:", message);
         get().addMessage(message);
       });
 
       newSocket.on("room-users", (users: User[]) => {
+        console.log("👥 Received room users:", users);
         get().setRoomUsers(users);
       });
 
       newSocket.on(
         "user-joined",
         (data: { username: string; message: string; timestamp: Date }) => {
+          console.log("👋 User joined:", data);
           get().addMessage({
             id: Date.now().toString(),
             content: data.message,
@@ -238,7 +310,7 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
         "channel-created",
         (data: { guildId: string; channel: Channel; timestamp: Date }) => {
           console.log(
-            "Channel created:",
+            "🆕 Channel created:",
             data.channel.name,
             "in guild",
             data.guildId
@@ -256,7 +328,7 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
         "channel-updated",
         (data: { guildId: string; channel: Channel; timestamp: Date }) => {
           console.log(
-            "Channel updated:",
+            "✏️ Channel updated:",
             data.channel.name,
             "in guild",
             data.guildId
@@ -278,10 +350,10 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
           channelName: string;
           timestamp: Date;
         }) => {
-          const { currentGuild, currentRoom, setCurrentRoom, setMessages } =
+          const { currentRoom, setCurrentRoom, setMessages } =
             get();
           console.log(
-            "Channel deleted:",
+            "🗑️ Channel deleted:",
             data.channelName,
             "from guild",
             data.guildId
@@ -302,23 +374,26 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
       );
 
       newSocket.on("error", (error: string) => {
-        console.error("Socket error:", error);
+        console.error("❌ Socket error:", error);
+        set({ isInitializing: false });
       });
 
-      set({ socket: newSocket });
-    } else if (!user && socket) {
-      // Disconnect socket if user is not authenticated
-      disconnectSocket();
+      console.log("✅ Socket instance created and stored");
+    } catch (error) {
+      console.error("❌ Failed to initialize socket:", error);
+      set({ isInitializing: false });
     }
   },
 
   disconnectSocket: () => {
     const { socket } = get();
     if (socket) {
+      console.log("Disconnecting socket...");
       socket.close();
       set({
         socket: null,
         isConnected: false,
+        isInitializing: false,
         messages: [],
         roomUsers: [],
         guilds: [],
@@ -327,6 +402,7 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
         currentRoom: null,
         typingUsers: [],
       });
+      console.log("Socket disconnected and state cleared");
     }
   },
   joinRoom: (username: string, room: string, guildId?: string) => {
@@ -784,13 +860,21 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
 }));
 
 // Subscribe to auth store changes to manage socket connection
-useAuthStore.subscribe((state) => {
+useAuthStore.subscribe((state, prevState) => {
   const { initializeSocket, disconnectSocket, startHeartbeat, stopHeartbeat } =
     useSocketStore.getState();
-  if (state.user) {
-    initializeSocket();
-    startHeartbeat();
-  } else {
+  
+  // Only initialize socket if user state actually changed from null to a user
+  // This prevents unnecessary re-initialization during app startup
+  if (state.user && !prevState?.user) {
+    console.log("🔌 User authenticated, initializing socket connection");
+    // Add a small delay to ensure auth is fully established
+    setTimeout(() => {
+      initializeSocket();
+      startHeartbeat();
+    }, 100);
+  } else if (!state.user && prevState?.user) {
+    console.log("🔌 User signed out, disconnecting socket");
     disconnectSocket();
     stopHeartbeat();
   }

@@ -81,7 +81,13 @@ export default function MessagePanel({
 
   // Socket event handlers and message restoration
   useEffect(() => {
-    if (!socket || !isConnected || !user) return;
+    if (!socket || !user) return;
+    
+    // Wait for socket to be connected before proceeding
+    if (!isConnected) {
+      console.log("⏳ Waiting for socket connection before setting up message handlers");
+      return;
+    }
 
     const handleNewMessage = (message: Message) => {
       setMessages((prev) => [...prev, message]);
@@ -112,6 +118,8 @@ export default function MessagePanel({
       return;
     }
 
+    console.log("🏠 Joining room:", { roomId, guildId, username: user.username });
+    
     // Join room via socket for real-time events
     socket.emit("join-room", {
       username: user.username,
@@ -144,6 +152,7 @@ export default function MessagePanel({
         if (response.ok) {
           const data = await response.json();
           if (data && data.messages) {
+            console.log("📨 Restored", data.messages.length, "messages for room:", roomId);
             setMessages(data.messages);
           }
         } else {

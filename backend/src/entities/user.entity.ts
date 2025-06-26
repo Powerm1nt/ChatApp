@@ -27,6 +27,9 @@ export class User {
   @Property({ default: false })
   isAnonymous: boolean = false;
 
+  @Property({ default: 'online' })
+  status: 'online' | 'do not disturb' | 'inactive' | 'offline' = 'online';
+
   @Property({ type: 'json', default: '[]' })
   friends: string[] = [];
 

@@ -1,6 +1,6 @@
 import { Circle } from "lucide-react";
 
-export type UserStatus = "online" | "away" | "busy" | "offline";
+export type UserStatus = "online" | "do not disturb" | "inactive" | "offline";
 
 interface UserStatusIndicatorProps {
   status: UserStatus;
@@ -17,10 +17,10 @@ export function UserStatusIndicator({
     switch (status) {
       case "online":
         return "text-green-500";
-      case "away":
-        return "text-yellow-500";
-      case "busy":
+      case "do not disturb":
         return "text-red-500";
+      case "inactive":
+        return "text-yellow-500";
       case "offline":
         return "text-gray-500";
       default:
@@ -32,10 +32,10 @@ export function UserStatusIndicator({
     switch (status) {
       case "online":
         return "Online";
-      case "away":
-        return "Away";
-      case "busy":
+      case "do not disturb":
         return "Do Not Disturb";
+      case "inactive":
+        return "Inactive";
       case "offline":
         return "Offline";
       default:

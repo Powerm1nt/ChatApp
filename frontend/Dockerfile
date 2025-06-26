@@ -9,6 +9,7 @@ COPY package.json yarn.lock ./
 
 # Development stage
 FROM base AS dev
+RUN yarn install
 EXPOSE 5173
 CMD ["yarn", "dev", "--", "--host", "0.0.0.0"]
 
@@ -23,6 +24,7 @@ ARG VITE_SOCKET_URL
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_SOCKET_URL=$VITE_SOCKET_URL
 
+RUN yarn install
 RUN yarn build
 
 # Production stage with nginx

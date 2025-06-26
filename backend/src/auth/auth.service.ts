@@ -146,4 +146,18 @@ export class AuthService {
       return result;
     });
   }
+
+  // Update user status
+  async updateUserStatus(userId: string, status: 'online' | 'do not disturb' | 'inactive' | 'offline'): Promise<Omit<User, 'password'>> {
+    const user = await this.userRepository.findOne({ id: userId });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    user.status = status;
+    await this.userRepository.persistAndFlush(user);
+
+    const { password: _, ...result } = user;
+    return result;
+  }
 }
