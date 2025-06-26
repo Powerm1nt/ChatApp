@@ -1,19 +1,25 @@
-import { 
-  Controller, 
-  Post, 
-  Get, 
+import {
+  Controller,
+  Post,
+  Get,
   Patch,
-  Body, 
-  UseGuards, 
+  Body,
+  UseGuards,
   Request,
   HttpCode,
   HttpStatus,
   ValidationPipe,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { AuthService } from './auth.service';
-import { AuthResponse } from './auth.config';
-import { IsEmail, IsString, MinLength, IsOptional, IsIn } from 'class-validator';
+} from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
+import { AuthService } from "./auth.service";
+import { AuthResponse } from "./auth.config";
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  IsOptional,
+  IsIn,
+} from "class-validator";
 
 class SignUpDto {
   @IsEmail()
@@ -38,56 +44,63 @@ class SignInDto {
 
 class UpdateStatusDto {
   @IsString()
-  @IsIn(['online', 'do not disturb', 'inactive', 'offline'])
-  status: 'online' | 'do not disturb' | 'inactive' | 'offline';
+  @IsIn(["online", "dnd", "inactive", "offline"])
+  status: "online" | "dnd" | "inactive" | "offline";
 }
 
-@Controller('api/auth')
+@Controller("api/auth")
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @Post('signup')
+  @Post("signup")
   @HttpCode(HttpStatus.CREATED)
-  async signUp(@Body(ValidationPipe) signUpDto: SignUpDto): Promise<AuthResponse> {
+  async signUp(
+    @Body(ValidationPipe) signUpDto: SignUpDto
+  ): Promise<AuthResponse> {
     return this.authService.signUp(
       signUpDto.email,
       signUpDto.password,
-      signUpDto.username,
+      signUpDto.username
     );
   }
 
-  @Post('signin')
+  @Post("signin")
   @HttpCode(HttpStatus.OK)
-  async signIn(@Body(ValidationPipe) signInDto: SignInDto): Promise<AuthResponse> {
+  async signIn(
+    @Body(ValidationPipe) signInDto: SignInDto
+  ): Promise<AuthResponse> {
     return this.authService.signIn(signInDto.email, signInDto.password);
   }
 
-  @Post('anonymous')
+  @Post("anonymous")
   @HttpCode(HttpStatus.OK)
   async signInAnonymous(): Promise<AuthResponse> {
     return this.authService.signInAnonymous();
   }
 
-  @Get('me')
-  @UseGuards(AuthGuard('jwt'))
+  @Get("me")
+  @UseGuards(AuthGuard("jwt"))
   async getProfile(@Request() req: any) {
-    console.log('Auth request user:', req.user);
+    console.log("Auth request user:", req.user);
     return req.user;
   }
 
-  @Get('users')
-  @UseGuards(AuthGuard('jwt'))
+  @Get("users")
+  @UseGuards(AuthGuard("jwt"))
   async getAllUsers() {
     return this.authService.getAllUsers();
   }
 
-  @Patch('status')
-  @UseGuards(AuthGuard('jwt'))
+  @Patch("status")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.OK)
   async updateStatus(
     @Request() req: any,
     @Body(ValidationPipe) updateStatusDto: UpdateStatusDto
   ) {
-    return this.authService.updateUserStatus(req.user.id, updateStatusDto.status);
+    return this.authService.updateUserStatus(
+      req.user.id,
+      updateStatusDto.status
+    );
   }
 }
