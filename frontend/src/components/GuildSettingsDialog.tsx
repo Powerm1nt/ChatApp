@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Trash2, Hash, Users, Shield } from 'lucide-react';
+import { Settings, Trash2, Users, Shield } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import { useGuildStore, Guild, Channel } from '../stores/guildStore';
+import { useGuildStore, Guild } from '../stores/guildStore';
 import { useConfirmationDialog } from './ui/confirmation-dialog';
 import { toast } from 'sonner';
 
@@ -27,10 +27,8 @@ export function GuildSettingsDialog({ guild, children }: GuildSettingsDialogProp
   const [name, setName] = useState(guild.name);
   const [description, setDescription] = useState(guild.description || '');
   const [isLoading, setIsLoading] = useState(false);
-  const { updateGuild, deleteChannel, channels } = useGuildStore();
+  const { updateGuild } = useGuildStore();
   const { showConfirmation, ConfirmationDialog } = useConfirmationDialog();
-
-  const guildChannels = channels.filter(channel => channel.guildId === guild.id);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,27 +55,7 @@ export function GuildSettingsDialog({ guild, children }: GuildSettingsDialogProp
     }
   };
 
-  const handleDeleteChannel = (channel: Channel) => {
-    showConfirmation({
-      title: "Delete Channel",
-      description: `Are you sure you want to delete "${channel.name}"? This action cannot be undone.`,
-      confirmText: "Delete Channel",
-      variant: "destructive",
-      onConfirm: async () => {
-        try {
-          const success = await deleteChannel(guild.id, channel.id);
-          if (success) {
-            toast.success(`Channel "${channel.name}" deleted successfully`);
-          } else {
-            toast.error('Failed to delete channel. Please try again.');
-          }
-        } catch (error) {
-          console.error('Failed to delete channel:', error);
-          toast.error('Failed to delete channel. Please try again.');
-        }
-      },
-    });
-  };
+
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
@@ -119,13 +97,6 @@ export function GuildSettingsDialog({ guild, children }: GuildSettingsDialogProp
                 >
                   <Settings className="w-4 h-4 mr-2" />
                   General
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="channels" 
-                  className="w-full justify-start px-3 py-2 text-left data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800"
-                >
-                  <Hash className="w-4 h-4 mr-2" />
-                  Channels
                 </TabsTrigger>
                 <TabsTrigger 
                   value="members" 
@@ -224,55 +195,7 @@ export function GuildSettingsDialog({ guild, children }: GuildSettingsDialogProp
                 </div>
               </TabsContent>
 
-              <TabsContent value="channels" className="h-full m-0 p-6 overflow-y-auto">
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Channel Management</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                      Manage channels in this workspace. You can delete channels that are no longer needed.
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {guildChannels.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                        <Hash className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>No channels found in this workspace.</p>
-                      </div>
-                    ) : (
-                      guildChannels.map((channel) => (
-                        <div
-                          key={channel.id}
-                          className="flex items-center justify-between p-4 border rounded-lg"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <Hash className="w-5 h-5 text-gray-400" />
-                            <div>
-                              <div className="font-medium">{channel.name}</div>
-                              {channel.description && (
-                                <div className="text-sm text-gray-500 dark:text-gray-400">
-                                  {channel.description}
-                                </div>
-                              )}
-                              <div className="text-xs text-gray-400 mt-1">
-                                {channel.stats.userCount} members • {channel.stats.messageCount} messages
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteChannel(channel)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Delete
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </TabsContent>
+
 
               <TabsContent value="members" className="h-full m-0 p-6 overflow-y-auto">
                 <div className="space-y-6">

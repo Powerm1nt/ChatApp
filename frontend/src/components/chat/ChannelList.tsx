@@ -3,22 +3,14 @@ import { useEffect, useState } from "react";
 import {
   Hash,
   Plus,
-  Trash2,
   MessageSquare,
-  Edit,
   ChevronDown,
   Activity,
   Settings,
+  Trash2,
 } from "lucide-react";
-import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,12 +18,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CreateChannelDialog } from "../CreateChannelDialog";
-import { EditChannelDialog } from "../EditChannelDialog";
+import { ChannelSettings } from "../ChannelSettings";
 import { GuildSettingsDialog } from "../GuildSettingsDialog";
 import { DeleteGuildDialog } from "../DeleteGuildDialog";
 import { GuildStatusDialog } from "../status/GuildStatusDialog";
 import { useGuildStoreWithAutoFetch } from "../../stores/guildStore";
-import { useConfirmationDialog } from "../ui/confirmation-dialog";
 
 interface ChannelListProps {
   guildId: string;
@@ -55,10 +46,8 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
   const params = useParams();
   const [isGuildDropdownOpen, setIsGuildDropdownOpen] = useState(false);
 
-  const { guilds, fetchChannels, deleteChannel, isLoadingChannels } =
+  const { guilds, fetchChannels, isLoadingChannels } =
     useGuildStoreWithAutoFetch();
-  
-  const { showConfirmation, ConfirmationDialog } = useConfirmationDialog();
 
   const currentGuild = guilds.find((g) => g.id === guildId);
 
@@ -84,27 +73,7 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
     return params.channel_id === channelId;
   };
 
-  const handleDeleteChannel = async (channelId: string) => {
-    const channel = guildChannels.find(c => c.id === channelId);
-    const channelName = channel?.name || 'this channel';
-    
-    showConfirmation({
-      title: "Delete Channel",
-      description: `Are you sure you want to delete "${channelName}"? This action cannot be undone.`,
-      confirmText: "Delete",
-      cancelText: "Cancel",
-      variant: "destructive",
-      onConfirm: async () => {
-        try {
-          await deleteChannel(guildId, channelId);
-          toast.success(`Channel "${channelName}" deleted successfully`);
-        } catch (error) {
-          console.error('Failed to delete channel:', error);
-          toast.error('Failed to delete channel. Please try again.');
-        }
-      }
-    });
-  };
+
 
   return (
     <div className="w-60 bg-gray-800 flex flex-col h-screen">
@@ -125,7 +94,8 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
             {currentGuild && (
-              <>                  <GuildSettingsDialog guild={currentGuild}>
+              <>
+                <GuildSettingsDialog guild={currentGuild}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                       <Settings className="mr-2 h-4 w-4" />
                       Server Settings
@@ -175,99 +145,35 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
               }
               if (guildChannels.length > 0) {
                 return guildChannels.map((channel) => (
-                  <ContextMenu key={channel.id}>
-                    <ContextMenuTrigger asChild>
-                      <div
-                        className={`group flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-700 cursor-pointer ${
-                          isChannelActive(channel.id) ? "bg-gray-600" : ""
-                        }`}
+                  <div
+                    key={channel.id}
+                    className={`flex items-center px-2 py-1.5 rounded hover:bg-gray-700 group ${
+                      isChannelActive(channel.id) ? "bg-gray-600" : ""
+                    }`}
+                  >
+                    <div
+                      className="flex items-center flex-1 cursor-pointer"
+                      onClick={() => handleChannelClick(channel.id)}
+                    >
+                      <Hash className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className={`truncate ${
+                        isChannelActive(channel.id)
+                          ? "text-white"
+                          : "text-gray-300"
+                      }`}>
+                        {channel.name}
+                      </span>
+                    </div>
+                    <ChannelSettings guildId={guildId} channel={channel}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-4 h-4 text-gray-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <Button
-                          variant="none"
-                          className={`flex-1 justify-start px-0 py-0 h-auto text-left ${
-                            isChannelActive(channel.id)
-                              ? "text-white"
-                              : "text-gray-300 hover:text-white"
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleChannelClick(channel.id);
-                          }}
-                        >
-                          <Hash className="w-4 h-4 mr-2 flex-shrink-0" />
-                          <span className="truncate">{channel.name}</span>
-                        </Button>
-                        
-                        {/* Dropdown Menu */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={`w-4 h-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity ${
-                                isChannelActive(channel.id)
-                                  ? "text-white hover:text-gray-300"
-                                  : "text-gray-400 hover:text-white"
-                              }`}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Settings className="w-3 h-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <CreateChannelDialog guildId={guildId}>
-                              <DropdownMenuItem
-                                onSelect={(e) => e.preventDefault()}
-                              >
-                                <Plus className="mr-2 h-4 w-4" />
-                                Create Channel
-                              </DropdownMenuItem>
-                            </CreateChannelDialog>
-                            <EditChannelDialog guildId={guildId} channel={channel}>
-                              <DropdownMenuItem
-                                onSelect={(e) => e.preventDefault()}
-                              >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit Channel
-                              </DropdownMenuItem>
-                            </EditChannelDialog>
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteChannel(channel.id)}
-                              className="text-red-600 focus:text-red-600"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete Channel
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      <CreateChannelDialog guildId={guildId}>
-                        <ContextMenuItem
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Channel
-                        </ContextMenuItem>
-                      </CreateChannelDialog>
-                      <EditChannelDialog guildId={guildId} channel={channel}>
-                        <ContextMenuItem
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Channel
-                        </ContextMenuItem>
-                      </EditChannelDialog>
-                      <ContextMenuItem
-                        onClick={() => handleDeleteChannel(channel.id)}
-                        className="text-red-600 focus:text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete Channel
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
+                        <Settings className="h-3 w-3" />
+                      </Button>
+                    </ChannelSettings>
+                  </div>
                 ));
               }
               return (
@@ -291,7 +197,6 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
           </div>
         </div>
       </div>
-      <ConfirmationDialog />
     </div>
   );
 }
