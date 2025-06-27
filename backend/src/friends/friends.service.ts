@@ -3,9 +3,9 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
-} from '@nestjs/common';
-import { EntityManager } from '@mikro-orm/core';
-import { User, FriendRequest, FriendRequestStatus } from '../entities';
+} from "@nestjs/common";
+import { EntityManager } from "@mikro-orm/core";
+import { User, FriendRequest, FriendRequestStatus } from "../entities";
 
 @Injectable()
 export class FriendsService {
@@ -14,33 +14,43 @@ export class FriendsService {
   async sendFriendRequest(senderId: string, receiverUsername: string) {
     const sender = await this.em.findOne(User, { id: senderId });
     if (!sender) {
-      throw new NotFoundException('Sender not found');
+      throw new NotFoundException("Sender not found");
     }
 
-    const receiver = await this.em.findOne(User, { username: receiverUsername });
+    const receiver = await this.em.findOne(User, {
+      username: receiverUsername,
+    });
     if (!receiver) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     if (sender.id === receiver.id) {
-      throw new BadRequestException('Cannot send friend request to yourself');
+      throw new BadRequestException("Cannot send friend request to yourself");
     }
 
     // Check if they are already friends
     if (sender.friends.includes(receiver.id)) {
-      throw new ConflictException('You are already friends with this user');
+      throw new ConflictException("You are already friends with this user");
     }
 
     // Check if there's already a pending request
     const existingRequest = await this.em.findOne(FriendRequest, {
       $or: [
-        { sender: sender.id, receiver: receiver.id, status: FriendRequestStatus.PENDING },
-        { sender: receiver.id, receiver: sender.id, status: FriendRequestStatus.PENDING },
+        {
+          sender: sender.id,
+          receiver: receiver.id,
+          status: FriendRequestStatus.PENDING,
+        },
+        {
+          sender: receiver.id,
+          receiver: sender.id,
+          status: FriendRequestStatus.PENDING,
+        },
       ],
     });
 
     if (existingRequest) {
-      throw new ConflictException('Friend request already exists');
+      throw new ConflictException("Friend request already exists");
     }
 
     const friendRequest = new FriendRequest();
@@ -67,10 +77,10 @@ export class FriendsService {
     const requests = await this.em.find(
       FriendRequest,
       { receiver: userId, status: FriendRequestStatus.PENDING },
-      { populate: ['sender'] },
+      { populate: ["sender"] }
     );
 
-    return requests.map(request => ({
+    return requests.map((request) => ({
       id: request.id,
       sender: {
         id: request.sender.id,
@@ -85,10 +95,10 @@ export class FriendsService {
     const requests = await this.em.find(
       FriendRequest,
       { sender: userId, status: FriendRequestStatus.PENDING },
-      { populate: ['receiver'] },
+      { populate: ["receiver"] }
     );
 
-    return requests.map(request => ({
+    return requests.map((request) => ({
       id: request.id,
       receiver: {
         id: request.receiver.id,
@@ -103,11 +113,11 @@ export class FriendsService {
     const request = await this.em.findOne(
       FriendRequest,
       { id: requestId, receiver: userId, status: FriendRequestStatus.PENDING },
-      { populate: ['sender', 'receiver'] },
+      { populate: ["sender", "receiver"] }
     );
 
     if (!request) {
-      throw new NotFoundException('Friend request not found');
+      throw new NotFoundException("Friend request not found");
     }
 
     // Update request status
@@ -139,42 +149,43 @@ export class FriendsService {
     const request = await this.em.findOne(
       FriendRequest,
       { id: requestId, receiver: userId, status: FriendRequestStatus.PENDING },
-      { populate: ['sender'] },
+      { populate: ["sender"] }
     );
 
     if (!request) {
-      throw new NotFoundException('Friend request not found');
+      throw new NotFoundException("Friend request not found");
     }
 
     request.status = FriendRequestStatus.DECLINED;
     await this.em.persistAndFlush(request);
 
     return {
-      message: 'Friend request declined',
+      message: "Friend request declined",
     };
   }
 
   async cancelFriendRequest(userId: string, requestId: string) {
-    const request = await this.em.findOne(
-      FriendRequest,
-      { id: requestId, sender: userId, status: FriendRequestStatus.PENDING },
-    );
+    const request = await this.em.findOne(FriendRequest, {
+      id: requestId,
+      sender: userId,
+      status: FriendRequestStatus.PENDING,
+    });
 
     if (!request) {
-      throw new NotFoundException('Friend request not found');
+      throw new NotFoundException("Friend request not found");
     }
 
     await this.em.removeAndFlush(request);
 
     return {
-      message: 'Friend request cancelled',
+      message: "Friend request cancelled",
     };
   }
 
   async getFriends(userId: string) {
     const user = await this.em.findOne(User, { id: userId });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     if (user.friends.length === 0) {
@@ -183,12 +194,11 @@ export class FriendsService {
 
     const friends = await this.em.find(User, { id: { $in: user.friends } });
 
-    return friends.map(friend => ({
+    return friends.map((friend) => ({
       id: friend.id,
       username: friend.username,
       email: friend.email,
-      // You can add status logic here if you implement user presence
-      status: 'offline', // Default status
+      status: "offline", //TODO: hardcoded status here
     }));
   }
 
@@ -197,21 +207,21 @@ export class FriendsService {
     const friend = await this.em.findOne(User, { id: friendId });
 
     if (!user || !friend) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     if (!user.friends.includes(friendId)) {
-      throw new BadRequestException('This user is not your friend');
+      throw new BadRequestException("This user is not your friend");
     }
 
     // Remove from both users' friend lists
-    user.friends = user.friends.filter(id => id !== friendId);
-    friend.friends = friend.friends.filter(id => id !== userId);
+    user.friends = user.friends.filter((id) => id !== friendId);
+    friend.friends = friend.friends.filter((id) => id !== userId);
 
     await this.em.persistAndFlush([user, friend]);
 
     return {
-      message: 'Friend removed successfully',
+      message: "Friend removed successfully",
     };
   }
 }
