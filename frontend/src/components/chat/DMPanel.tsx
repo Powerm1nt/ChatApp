@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   MessageCircle,
   Users,
@@ -17,15 +17,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useFriendsStore, Friend } from "@/stores/friendsStore";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { toast } from "sonner";
+import AddFriendDialog, {
+  AddFriendDialogRef,
+} from "@/components/AddFriendDialog";
 
 interface ChatItem {
   id: string;
@@ -40,55 +34,25 @@ interface ChatItem {
 export function DMPanel() {
   const navigate = useNavigate();
   const [isPanelDropdownOpen, setIsPanelDropdownOpen] = useState(false);
-  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
-  const [newFriendUsername, setNewFriendUsername] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const addFriendDialogRef = useRef<AddFriendDialogRef>(null);
 
-  const {
-    friends,
-    fetchFriends,
-    isLoading,
-    error,
-    sendFriendRequest,
-    resetErrors,
-  } = useFriendsStore();
+  const { friends, fetchFriends, isLoading, error, resetErrors } =
+    useFriendsStore();
 
   // Fetch friends on component mount
   useEffect(() => {
     fetchFriends();
   }, [fetchFriends]);
 
-  // Convert friends to chat items format
-  const chatItems: ChatItem[] = [
-    // Direct messages from friends
-    ...friends.map((friend) => ({
-      id: friend.id,
-      name: friend.username,
-      lastMessage: "Click to start chatting", // Placeholder - would come from a messages store
-      timestamp: new Date(),
-      unread: 0, // Placeholder - would come from a messages store
-      isGroup: false,
-    })),
-    // Groups - in a real implementation, these would come from the same store
-    {
-      id: "group-1",
-      name: "Project Team",
-      lastMessage: "Meeting at 3 PM",
-      timestamp: new Date(),
-      unread: 3,
-      isGroup: true,
-      memberCount: 5,
-    },
-    {
-      id: "group-2",
-      name: "Study Group",
-      lastMessage: "Notes uploaded",
-      timestamp: new Date(),
-      unread: 0,
-      isGroup: true,
-      memberCount: 8,
-    },
-  ];
+  // Convert friends to chat items format - only use real data from friendsStore
+  const chatItems: ChatItem[] = friends.map((friend) => ({
+    id: friend.id,
+    name: friend.username,
+    lastMessage: "Click to start chatting", // Placeholder - would come from a messages store
+    timestamp: new Date(),
+    unread: 0, // Placeholder - would come from a messages store
+    isGroup: false,
+  }));
 
   // Sort by most recent message
   const sortedChatItems = [...chatItems].sort(
@@ -110,39 +74,18 @@ export function DMPanel() {
     }
   };
 
-  const handleAddFriend = async () => {
-    if (!newFriendUsername.trim()) {
-      toast.error("Username cannot be empty");
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const result = await sendFriendRequest(newFriendUsername);
-
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.success("Friend request sent successfully!");
-        setNewFriendUsername("");
-        // Close the dialog after successful submission
-        setIsAddFriendOpen(false);
-      }
-    } catch (error) {
-      toast.error("Failed to send friend request");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleFriendRequestSent = () => {
+    // Refresh the friends list after a short delay to show any pending requests
+    setTimeout(() => {
+      fetchFriends();
+    }, 1000);
   };
 
-  // Reset form when dialog closes
-  useEffect(() => {
-    if (!isAddFriendOpen) {
-      setNewFriendUsername("");
-      resetErrors();
+  const openAddFriendDialog = () => {
+    if (addFriendDialogRef.current) {
+      addFriendDialogRef.current.open();
     }
-  }, [isAddFriendOpen, resetErrors]);
+  };
 
   return (
     <div className="w-60 bg-gray-800 flex flex-col h-full">
@@ -165,7 +108,7 @@ export function DMPanel() {
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuItem onClick={() => setIsAddFriendOpen(true)}>
+            <DropdownMenuItem onClick={openAddFriendDialog}>
               <UserPlus className="mr-2 h-4 w-4" />
               Add Friend
             </DropdownMenuItem>
@@ -188,7 +131,7 @@ export function DMPanel() {
             variant="none"
             size="icon"
             className="w-4 h-4 text-gray-400 hover:text-white"
-            onClick={() => setIsAddFriendOpen(true)}
+            onClick={openAddFriendDialog}
           >
             <Plus className="h-4 w-4" />
           </Button>
@@ -208,11 +151,7 @@ export function DMPanel() {
               <p className="text-gray-600 text-xs mb-4">
                 Add friends to start chatting
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAddFriendOpen(true)}
-              >
+              <Button variant="outline" size="sm" onClick={openAddFriendDialog}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Friend
               </Button>
@@ -224,17 +163,11 @@ export function DMPanel() {
                 className="flex items-center px-2 py-2 rounded hover:bg-gray-700 cursor-pointer group"
                 onClick={() => handleChatItemClick(item)}
               >
-                {item.isGroup ? (
-                  <div className="h-8 w-8 mr-3 flex-shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Users className="h-4 w-4 text-primary" />
-                  </div>
-                ) : (
-                  <Avatar className="h-8 w-8 mr-3 flex-shrink-0">
-                    <AvatarFallback className="text-xs bg-primary/20 text-primary">
-                      {item.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                )}
+                <Avatar className="h-8 w-8 mr-3 flex-shrink-0">
+                  <AvatarFallback className="text-xs bg-primary/20 text-primary">
+                    {item.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-300 text-sm font-medium truncate">
@@ -244,16 +177,9 @@ export function DMPanel() {
                       {formatTime(item.timestamp)}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-gray-400 text-xs truncate">
-                      {item.lastMessage}
-                    </p>
-                    {item.isGroup && item.memberCount && (
-                      <span className="text-gray-500 text-xs">
-                        {item.memberCount} members
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-gray-400 text-xs truncate">
+                    {item.lastMessage}
+                  </p>
                 </div>
                 {item.unread > 0 && (
                   <Badge
@@ -269,34 +195,13 @@ export function DMPanel() {
         </div>
       </div>
 
-      {/* Add Friend Dialog */}
-      <Dialog open={isAddFriendOpen} onOpenChange={setIsAddFriendOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add Friend</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-gray-500 mb-4">
-              Enter the username of the person you want to add as a friend.
-            </p>
-            <Input
-              placeholder="Username"
-              value={newFriendUsername}
-              onChange={(e) => setNewFriendUsername(e.target.value)}
-              className="mb-4"
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="submit"
-              onClick={handleAddFriend}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Sending..." : "Send Friend Request"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* AddFriendDialog with ref for controlling it */}
+      <div className="hidden">
+        <AddFriendDialog
+          ref={addFriendDialogRef}
+          onFriendRequestSent={handleFriendRequestSent}
+        />
+      </div>
     </div>
   );
 }
