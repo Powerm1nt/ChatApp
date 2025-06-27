@@ -1,23 +1,29 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
+import {
+  Controller,
+  Get,
+  Post,
   Put,
   Delete,
-  Body, 
-  Param, 
-  UseGuards, 
+  Body,
+  Param,
+  UseGuards,
   Request,
   HttpCode,
   HttpStatus,
   ValidationPipe,
   BadRequestException,
   NotFoundException,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { ChatService } from './chat.service';
-import { ChatGateway, ChatMessage } from './chat.gateway';
-import { IsString, IsNotEmpty, MinLength, MaxLength, IsOptional } from 'class-validator';
+} from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
+import { ChatService } from "./chat.service";
+import { ChatGateway, ChatMessage } from "./chat.gateway";
+import {
+  IsString,
+  IsNotEmpty,
+  MinLength,
+  MaxLength,
+  IsOptional,
+} from "class-validator";
 
 class SendMessageDto {
   @IsString()
@@ -92,28 +98,28 @@ class UpdateGuildDto {
   description?: string;
 }
 
-@Controller('api')
+@Controller("api")
 export class ChatController {
   constructor(
-    private chatService: ChatService,
-    private chatGateway: ChatGateway,
+    private readonly chatService: ChatService,
+    private readonly chatGateway: ChatGateway
   ) {}
 
   // Test endpoint without auth
-  @Get('test')
+  @Get("test")
   @HttpCode(HttpStatus.OK)
   async test() {
-    return { message: 'Test endpoint working' };
+    return { message: "Test endpoint working" };
   }
 
   // Guild endpoints
-  @Get('guilds')
-  @UseGuards(AuthGuard('jwt'))
+  @Get("guilds")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.OK)
   async getUserGuilds(@Request() req: any) {
     const userId = req.user.id;
     const guilds = await this.chatService.getUserGuilds(userId);
-    
+
     const guildsWithStats = await Promise.all(
       guilds.map(async (guild) => ({
         ...guild,
@@ -129,25 +135,26 @@ export class ChatController {
     return { guilds: guildsWithStats };
   }
 
-  @Post('guilds')
-  @UseGuards(AuthGuard('jwt'))
+  @Post("guilds")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.CREATED)
   async createGuild(
     @Body(ValidationPipe) createGuildDto: CreateGuildDto,
     @Request() req: any
   ) {
     const userId = req.user.id;
-    const guild = await this.chatService.createGuild(createGuildDto.name, userId, createGuildDto.description);
+    const guild = await this.chatService.createGuild(
+      createGuildDto.name,
+      userId,
+      createGuildDto.description
+    );
     return guild;
   }
 
-  @Get('guilds/:guildId')
-  @UseGuards(AuthGuard('jwt'))
+  @Get("guilds/:guildId")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.OK)
-  async getGuild(
-    @Param('guildId') guildId: string,
-    @Request() req: any
-  ) {
+  async getGuild(@Param("guildId") guildId: string, @Request() req: any) {
     const userId = req.user.id;
     const guild = await this.chatService.getGuild(guildId, userId);
 
@@ -164,53 +171,54 @@ export class ChatController {
     };
   }
 
-  @Put('guilds/:guildId')
-  @UseGuards(AuthGuard('jwt'))
+  @Put("guilds/:guildId")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.OK)
   async updateGuild(
-    @Param('guildId') guildId: string,
+    @Param("guildId") guildId: string,
     @Body(ValidationPipe) updateGuildDto: UpdateGuildDto,
     @Request() req: any
   ) {
     const userId = req.user.id;
-    const updatedGuild = await this.chatService.updateGuild(guildId, userId, updateGuildDto);
-    
+    const updatedGuild = await this.chatService.updateGuild(
+      guildId,
+      userId,
+      updateGuildDto
+    );
+
     // Broadcast guild update to all guild members
     this.chatGateway.broadcastGuildUpdated(guildId, updatedGuild);
-    
+
     return updatedGuild;
   }
 
-  @Delete('guilds/:guildId')
-  @UseGuards(AuthGuard('jwt'))
+  @Delete("guilds/:guildId")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteGuild(
-    @Param('guildId') guildId: string,
-    @Request() req: any
-  ) {
+  async deleteGuild(@Param("guildId") guildId: string, @Request() req: any) {
     const userId = req.user.id;
-    
+
     // Get guild info before deletion for broadcasting
     const guild = await this.chatService.getGuild(guildId, userId);
-    
+
     await this.chatService.deleteGuild(guildId, userId);
-    
+
     // Broadcast guild deletion to all guild members
     this.chatGateway.broadcastGuildDeleted(guildId, guild.name);
-    
+
     return { success: true };
   }
 
-  @Get('guilds/:guildId/channels')
-  @UseGuards(AuthGuard('jwt'))
+  @Get("guilds/:guildId/channels")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.OK)
   async getGuildChannels(
-    @Param('guildId') guildId: string,
+    @Param("guildId") guildId: string,
     @Request() req: any
   ) {
     const userId = req.user.id;
     const channels = await this.chatService.getGuildChannels(guildId, userId);
-    
+
     const channelsWithStats = await Promise.all(
       channels.map(async (channel) => ({
         ...channel,
@@ -224,59 +232,69 @@ export class ChatController {
     };
   }
 
-  @Post('guilds/:guildId/channels')
-  @UseGuards(AuthGuard('jwt'))
+  @Post("guilds/:guildId/channels")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.CREATED)
   async createChannel(
-    @Param('guildId') guildId: string,
+    @Param("guildId") guildId: string,
     @Body(ValidationPipe) createChannelDto: CreateChannelDto,
     @Request() req: any
   ) {
     const userId = req.user.id;
-    const channel = await this.chatService.createChannel(guildId, createChannelDto.name, userId, createChannelDto.description);
-    
+    const channel = await this.chatService.createChannel(
+      guildId,
+      createChannelDto.name,
+      userId,
+      createChannelDto.description
+    );
+
     // Broadcast channel creation to all guild members
     this.chatGateway.broadcastChannelCreated(guildId, channel);
-    
+
     return channel;
   }
 
-  @Put('guilds/:guildId/channels/:channelId')
-  @UseGuards(AuthGuard('jwt'))
+  @Put("guilds/:guildId/channels/:channelId")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.OK)
   async updateChannel(
-    @Param('guildId') guildId: string,
-    @Param('channelId') channelId: string,
+    @Param("guildId") guildId: string,
+    @Param("channelId") channelId: string,
     @Body(ValidationPipe) updateChannelDto: UpdateChannelDto,
     @Request() req: any
   ) {
     const userId = req.user.id;
-    const updatedChannel = await this.chatService.updateChannel(guildId, channelId, userId, updateChannelDto);
-    
+    const updatedChannel = await this.chatService.updateChannel(
+      guildId,
+      channelId,
+      userId,
+      updateChannelDto
+    );
+
     // Broadcast channel update to all guild members
     this.chatGateway.broadcastChannelUpdated(guildId, updatedChannel);
-    
+
     return updatedChannel;
   }
 
-  @Delete('guilds/:guildId/channels/:channelId')
-  @UseGuards(AuthGuard('jwt'))
+  @Delete("guilds/:guildId/channels/:channelId")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteChannel(
-    @Param('guildId') guildId: string,
-    @Param('channelId') channelId: string,
+    @Param("guildId") guildId: string,
+    @Param("channelId") channelId: string,
     @Request() req: any
   ) {
     const userId = req.user.id;
-    
+
     // Get channel info before deletion for broadcasting
     const channel = await this.chatService.getChannel(channelId, userId);
-    
+
     await this.chatService.deleteChannel(guildId, channelId, userId);
-    
+
     // Broadcast channel deletion to all guild members
     this.chatGateway.broadcastChannelDeleted(guildId, channelId, channel.name);
-    
+
     return { success: true };
   }
 
@@ -284,16 +302,19 @@ export class ChatController {
 
   // Legacy endpoint - removed for security
 
-  @Get('guilds/:guildId/channels/:channelId/messages')
-  @UseGuards(AuthGuard('jwt'))
+  @Get("guilds/:guildId/channels/:channelId/messages")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.OK)
   async getChannelMessages(
-    @Param('guildId') guildId: string,
-    @Param('channelId') channelId: string,
+    @Param("guildId") guildId: string,
+    @Param("channelId") channelId: string,
     @Request() req: any
   ) {
     const userId = req.user.id;
-    const messages = await this.chatService.getChannelMessages(channelId, userId);
+    const messages = await this.chatService.getChannelMessages(
+      channelId,
+      userId
+    );
     const channelUsers = this.chatService.getRoomUsers(channelId);
     const stats = await this.chatService.getChannelStats(channelId, userId);
 
@@ -308,33 +329,33 @@ export class ChatController {
 
   // Legacy endpoint - removed for security
 
-  @Post('guilds/:guildId/channels/:channelId/messages')
-  @UseGuards(AuthGuard('jwt'))
+  @Post("guilds/:guildId/channels/:channelId/messages")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.CREATED)
   async sendChannelMessage(
-    @Param('guildId') guildId: string,
-    @Param('channelId') channelId: string,
+    @Param("guildId") guildId: string,
+    @Param("channelId") channelId: string,
     @Body(ValidationPipe) sendMessageDto: SendMessageDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     const userId = req.user.id;
-    
+
     // Save the message to database
     const message = await this.chatService.saveMessage(
       sendMessageDto.message.trim(),
       userId,
       channelId
-    );      // Create chat message for WebSocket broadcast
-      const chatMessage: ChatMessage = {
-        id: message.id,
-        content: message.content,
-        author: {
-          id: userId,
-          username: sendMessageDto.username,
-        },
-        timestamp: message.timestamp,
-        room: channelId,
-      };
+    ); // Create chat message for WebSocket broadcast
+    const chatMessage: ChatMessage = {
+      id: message.id,
+      content: message.content,
+      author: {
+        id: userId,
+        username: sendMessageDto.username,
+      },
+      timestamp: message.timestamp,
+      room: channelId,
+    };
 
     // Broadcast the message to all users in the channel via WebSocket
     this.chatGateway.broadcastMessage(channelId, chatMessage);
@@ -354,19 +375,19 @@ export class ChatController {
 
   // Legacy endpoint - removed for security
 
-  @Get('guilds/:guildId/channels/:channelId/users')
-  @UseGuards(AuthGuard('jwt'))
+  @Get("guilds/:guildId/channels/:channelId/users")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.OK)
   async getChannelUsers(
-    @Param('guildId') guildId: string,
-    @Param('channelId') channelId: string,
+    @Param("guildId") guildId: string,
+    @Param("channelId") channelId: string,
     @Request() req: any
   ) {
     const userId = req.user.id;
-    
+
     // Check access to channel
     await this.chatService.getChannel(channelId, userId);
-    
+
     const users = this.chatService.getRoomUsers(channelId);
     return {
       guildId,
@@ -378,8 +399,8 @@ export class ChatController {
 
   // Legacy endpoint - removed for security
 
-  @Get('stats')
-  @UseGuards(AuthGuard('jwt'))
+  @Get("stats")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.OK)
   async getGlobalStats(@Request() req: any) {
     const userId = req.user.id;
@@ -389,7 +410,7 @@ export class ChatController {
     return {
       totalGuilds: guilds.length,
       activeUsers,
-      guilds: guilds.map(guild => ({
+      guilds: guilds.map((guild) => ({
         id: guild.id,
         name: guild.name,
         channelCount: guild.channels.length,
@@ -398,13 +419,10 @@ export class ChatController {
   }
 
   // Guild status endpoint
-  @Get('guilds/:guildId/status')
-  @UseGuards(AuthGuard('jwt'))
+  @Get("guilds/:guildId/status")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.OK)
-  async getGuildStatus(
-    @Param('guildId') guildId: string,
-    @Request() req: any
-  ) {
+  async getGuildStatus(@Param("guildId") guildId: string, @Request() req: any) {
     const userId = req.user.id;
     const guild = await this.chatService.getGuild(guildId, userId);
     const activeUsers = this.chatService.getGuildActiveUsers(guildId);
@@ -414,7 +432,7 @@ export class ChatController {
     return {
       guildId,
       name: guild.name,
-      status: 'active',
+      status: "active",
       timestamp: new Date().toISOString(),
       stats: {
         memberCount,
@@ -423,29 +441,33 @@ export class ChatController {
         createdAt: guild.createdAt,
       },
       health: {
-        database: 'connected',
-        channels: channelCount > 0 ? 'available' : 'empty',
-        members: memberCount > 0 ? 'active' : 'inactive'
-      }
+        database: "connected",
+        channels: channelCount > 0 ? "available" : "empty",
+        members: memberCount > 0 ? "active" : "inactive",
+      },
     };
   }
 
   // User status endpoint
-  @Get('users/:userId/status')
-  @UseGuards(AuthGuard('jwt'))
+  @Get("users/:userId/status")
+  @UseGuards(AuthGuard("jwt"))
   @HttpCode(HttpStatus.OK)
   async getUserStatus(
-    @Param('userId') targetUserId: string,
+    @Param("userId") targetUserId: string,
     @Request() req: any
   ) {
     const requestingUserId = req.user.id;
-    
+
     // Users can only view their own status or status of users in their guilds
-    const canViewStatus = requestingUserId === targetUserId || 
-      await this.chatService.canUserViewUserStatus(requestingUserId, targetUserId);
-    
+    const canViewStatus =
+      requestingUserId === targetUserId ||
+      (await this.chatService.canUserViewUserStatus(
+        requestingUserId,
+        targetUserId
+      ));
+
     if (!canViewStatus) {
-      throw new BadRequestException('You cannot view this user\'s status');
+      throw new BadRequestException("You cannot view this user's status");
     }
 
     const user = await this.chatService.getUserById(targetUserId);
@@ -456,7 +478,7 @@ export class ChatController {
     return {
       userId: targetUserId,
       username: user.username || user.email,
-      status: isOnline ? 'online' : 'offline',
+      status: isOnline ? "online" : "offline",
       timestamp: new Date().toISOString(),
       stats: {
         guildCount: userGuilds.length,
@@ -464,10 +486,10 @@ export class ChatController {
         lastActivity: lastActivity || user.createdAt,
       },
       health: {
-        connection: isOnline ? 'connected' : 'disconnected',
-        guilds: userGuilds.length > 0 ? 'member' : 'no-guilds',
-        account: user.isAnonymous ? 'anonymous' : 'registered'
-      }
+        connection: isOnline ? "connected" : "disconnected",
+        guilds: userGuilds.length > 0 ? "member" : "no-guilds",
+        account: user.isAnonymous ? "anonymous" : "registered",
+      },
     };
   }
 }
