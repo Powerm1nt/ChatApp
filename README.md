@@ -266,6 +266,7 @@ Services communicate through a custom Docker network (`chat-app-network`).
 3. Make your changes
 4. Test with Docker
 5. Submit a pull request
+6. Thanks Ai!
 
 ## License
 
