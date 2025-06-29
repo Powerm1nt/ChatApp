@@ -19,7 +19,7 @@ import {
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore } from "@/stores/authStore";
-import { UserProfileDialog } from "./UserProfileDialog";
+import { SettingsDialog } from "./SettingsDialog";
 import { UserStatusIndicator, UserStatus } from "./UserStatusIndicator";
 import { toast } from "@/lib/toast";
 
@@ -216,7 +216,7 @@ export function ProfileControl() {
           </Tooltip>
         </div>
 
-        <UserProfileDialog
+        <SettingsDialog
           open={showProfileDialog}
           onOpenChange={setShowProfileDialog}
         />

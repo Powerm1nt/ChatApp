@@ -113,16 +113,6 @@ export default function DMContent() {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <AddFriendDialog onFriendRequestSent={handleFriendRequestSent} />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/settings")}
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </div>

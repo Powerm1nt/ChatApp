@@ -60,7 +60,7 @@ export function ChannelList({ guildId }: Readonly<ChannelListProps>) {
   }, [guildId, currentGuild?.id]);
 
   if (!currentGuild) {
-    return <ChannelPlaceholder />;
+    return null;
   }
 
   const guildChannels = currentGuild?.channels || [];

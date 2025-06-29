@@ -16,7 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useFriendsStore, Friend } from "@/stores/friendsStore";
+import { useFriendsStore } from "@/stores/friendsStore";
 import AddFriendDialog, {
   AddFriendDialogRef,
 } from "@/components/AddFriendDialog";
@@ -36,8 +36,7 @@ export function DMPanel() {
   const [isPanelDropdownOpen, setIsPanelDropdownOpen] = useState(false);
   const addFriendDialogRef = useRef<AddFriendDialogRef>(null);
 
-  const { friends, fetchFriends, isLoading, error, resetErrors } =
-    useFriendsStore();
+  const { friends, fetchFriends, isLoading } = useFriendsStore();
 
   // Fetch friends on component mount
   useEffect(() => {

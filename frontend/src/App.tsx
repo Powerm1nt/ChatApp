@@ -6,14 +6,13 @@ import {
 } from "react-router-dom";
 import { useEffect } from "react";
 import LoginPage from "./pages/LoginPage";
-import SettingsPage from "./pages/SettingsPage";
 import ChatView from "./components/chat/ChatView";
 import DMView from "./components/chat/DMView";
 import { AppLayout } from "./components/layout/AppLayout";
 import { useAuthStore } from "./stores/authStore";
 import { useSocketStore } from "./stores/socketStore";
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children }: Readonly<{ children: React.ReactNode }>) {
   const { user, isLoading } = useAuthStore();
 
   if (isLoading) {
@@ -99,16 +98,6 @@ function App() {
             <ProtectedRoute>
               <AppLayout>
                 <ChatView showUserList={true} showMessagePanel={true} />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute>
-              <AppLayout>
-                <SettingsPage />
               </AppLayout>
             </ProtectedRoute>
           }
