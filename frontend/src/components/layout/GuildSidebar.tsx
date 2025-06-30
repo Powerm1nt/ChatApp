@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, Plus, Activity, Trash2, Settings } from "lucide-react";
+import { Home, Plus, Activity, Trash2, Settings, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -21,11 +21,15 @@ import { GuildSettingsDialog } from "../GuildSettingsDialog";
 import { DeleteGuildDialog } from "../DeleteGuildDialog";
 import { ProfileControl } from "../ProfileControl";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import GuildInvitationDialog, { GuildInvitationDialogRef } from "../GuildInvitationDialog";
+import { useRef, useState } from "react";
 
 export function GuildSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { guilds } = useGuildStoreWithAutoFetch();
+  const invitationDialogRef = useRef<GuildInvitationDialogRef>(null);
+  const [selectedGuild, setSelectedGuild] = useState<{ id: string; name: string } | null>(null);
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -50,6 +54,11 @@ export function GuildSidebar() {
 
   return (
     <TooltipProvider>
+      <GuildInvitationDialog
+        ref={invitationDialogRef}
+        guildId={selectedGuild?.id || ""}
+        guildName={selectedGuild?.name || ""}
+      />
       <div className="flex flex-col w-16 bg-gray-900 h-screen fixed left-0 top-0 z-10">
         {/* Fixed Top Section */}
         <div className="flex flex-col py-3 space-y-2">
@@ -110,6 +119,15 @@ export function GuildSidebar() {
                     </TooltipContent>
                   </Tooltip>
                   <ContextMenuContent>
+                    <ContextMenuItem
+                      onClick={() => {
+                        setSelectedGuild({ id: guild.id, name: guild.name });
+                        setTimeout(() => invitationDialogRef.current?.open(), 0);
+                      }}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Invite Friends
+                    </ContextMenuItem>
                     <GuildSettingsDialog guild={guild}>
                       <ContextMenuItem>
                         <Settings className="mr-2 h-4 w-4" />

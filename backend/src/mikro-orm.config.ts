@@ -1,9 +1,9 @@
 import { Options } from '@mikro-orm/core';
 import { PostgreSqlDriver } from '@mikro-orm/postgresql';
-import { User, Guild, Channel, UserGuild, Message, FriendRequest, Group, GroupMessage, DirectMessage } from './entities';
+import { User, Guild, Channel, UserGuild, Message, FriendRequest, Group, GroupMessage, DirectMessage, GuildInvitation } from './entities';
 
 const config: Options<PostgreSqlDriver> = {
-  entities: [User, Guild, Channel, UserGuild, Message, FriendRequest, Group, GroupMessage, DirectMessage],
+  entities: [User, Guild, Channel, UserGuild, Message, FriendRequest, Group, GroupMessage, DirectMessage, GuildInvitation],
   dbName: process.env.DB_NAME || 'chatapp',
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),

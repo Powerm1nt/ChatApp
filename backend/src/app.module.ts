@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { ChatModule } from './chat/chat.module';
 import { AuthModule } from './auth/auth.module';
 import { FriendsModule } from './friends/friends.module';
+import { InvitationModule } from './invitation/invitation.module';
 import config from './mikro-orm.config';
 
 @Module({
@@ -17,6 +18,7 @@ import config from './mikro-orm.config';
     ChatModule,
     AuthModule,
     FriendsModule,
+    InvitationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

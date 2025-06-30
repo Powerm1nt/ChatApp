@@ -24,6 +24,7 @@ import {
   MaxLength,
   IsOptional,
 } from "class-validator";
+import { InvitationService } from '../invitation/invitation.service';
 
 class SendMessageDto {
   @IsString()
@@ -98,11 +99,18 @@ class UpdateGuildDto {
   description?: string;
 }
 
+class CreateGuildInvitationDto {
+  @IsOptional()
+  @IsString()
+  inviteeId?: string;
+}
+
 @Controller("api")
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
-    private readonly chatGateway: ChatGateway
+    private readonly chatGateway: ChatGateway,
+    private readonly invitationService: InvitationService
   ) {}
 
   // Test endpoint without auth
@@ -491,5 +499,18 @@ export class ChatController {
         account: user.isAnonymous ? "anonymous" : "registered",
       },
     };
+  }
+
+  @Post("guilds/:guildId/invitations")
+  @UseGuards(AuthGuard("jwt"))
+  @HttpCode(HttpStatus.CREATED)
+  async createGuildInvitation(
+    @Param("guildId") guildId: string,
+    @Body(ValidationPipe) body: CreateGuildInvitationDto,
+    @Request() req: any
+  ) {
+    const inviterId = req.user.id;
+    const code = await this.invitationService.createGuildInvitation(guildId, inviterId, body.inviteeId);
+    return { code };
   }
 }

@@ -7,3 +7,4 @@ export * from './friend-request.entity';
 export * from './group.entity';
 export * from './group-message.entity';
 export * from './direct-message.entity';
+export * from './guild-invitation.entity';
