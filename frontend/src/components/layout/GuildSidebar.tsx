@@ -20,6 +20,7 @@ import { GuildStatusDialog } from "../status/GuildStatusDialog";
 import { GuildSettingsDialog } from "../GuildSettingsDialog";
 import { DeleteGuildDialog } from "../DeleteGuildDialog";
 import { ProfileControl } from "../ProfileControl";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function GuildSidebar() {
   const navigate = useNavigate();
@@ -50,8 +51,8 @@ export function GuildSidebar() {
   return (
     <TooltipProvider>
       <div className="flex flex-col w-16 bg-gray-900 h-screen fixed left-0 top-0 z-10">
-        {/* Main Content */}
-        <div className="flex flex-col py-3 space-y-2 flex-1">
+        {/* Fixed Top Section */}
+        <div className="flex flex-col py-3 space-y-2">
           {/* App Logo / Home Button */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -75,8 +76,10 @@ export function GuildSidebar() {
 
           {/* Separator */}
           <div className="w-8 h-0.5 bg-gray-600 mx-auto rounded-full" />
+        </div>
 
-          {/* Guild List */}
+        {/* Scrollable Guild List */}
+        <ScrollArea className="flex-1 px-2 py-1">
           <div className="flex flex-col space-y-2">
             {guilds.map((guild) => (
               <div key={guild.id} className="relative group">
@@ -87,7 +90,7 @@ export function GuildSidebar() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className={`w-12 h-12 mx-2 rounded-xl transition-all duration-200 ${
+                          className={`w-12 h-12 rounded-xl transition-all duration-200 ${
                             isGuildActive(guild.id)
                               ? "bg-primary text-primary-foreground rounded-lg"
                               : "bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white hover:rounded-lg"
@@ -133,7 +136,10 @@ export function GuildSidebar() {
               </div>
             ))}
           </div>
+        </ScrollArea>
 
+        {/* Fixed Bottom Section */}
+        <div className="mt-auto py-3 flex flex-col space-y-2">
           {/* Add Guild Button */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -151,10 +157,10 @@ export function GuildSidebar() {
               <p>Add a Server</p>
             </TooltipContent>
           </Tooltip>
-        </div>
 
-        {/* Profile Control at Bottom */}
-        <ProfileControl />
+          {/* Profile Control at Bottom */}
+          <ProfileControl />
+        </div>
       </div>
     </TooltipProvider>
   );
