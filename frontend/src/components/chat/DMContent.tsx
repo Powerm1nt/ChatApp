@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuthStore } from "../../stores/authStore";
 import { useFriendsStore } from "../../stores/friendsStore";
-import { MessageCircle, Users, UserPlus, Settings, LogOut } from "lucide-react";
+import { MessageCircle, Users, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import AddFriendDialog from "../AddFriendDialog";
 import { toast } from "sonner";
 
@@ -42,11 +41,6 @@ export default function DMContent() {
 
     fetchData();
   }, [fetchFriends, fetchReceivedRequests]);
-
-  const handleSignOut = () => {
-    signOut();
-    navigate("/login");
-  };
 
   const handleAcceptRequest = async (requestId: string) => {
     try {

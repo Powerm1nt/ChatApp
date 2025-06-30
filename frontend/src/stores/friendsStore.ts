@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import axios from "axios";
 
-// Friend request interface
 export interface FriendRequest {
   id: string;
   sender: {
@@ -12,7 +11,6 @@ export interface FriendRequest {
   createdAt: string;
 }
 
-// Friend interface
 export interface Friend {
   id: string;
   username: string;
@@ -57,7 +55,6 @@ interface FriendsState {
 }
 
 export const useFriendsStore = create<FriendsState>()((set, get) => {
-  // API endpoint
   const API_URL = "/friends";
 
   return {
@@ -72,10 +69,8 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
     },
     error: null,
 
-    // Reset errors
     resetErrors: () => set({ error: null }),
 
-    // Fetch all friends
     fetchFriends: async () => {
       try {
         set((state) => ({
@@ -90,7 +85,7 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
         return friends;
       } catch (error: any) {
         const errorMessage =
-          error?.response?.data?.message || "Failed to fetch friends";
+          error?.response?.data?.message ?? "Failed to fetch friends";
         set({
           error: errorMessage,
           isLoading: { ...get().isLoading, friends: false },
@@ -99,7 +94,6 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
       }
     },
 
-    // Fetch received friend requests
     fetchReceivedRequests: async () => {
       try {
         set((state) => ({
@@ -117,7 +111,7 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
         return receivedRequests;
       } catch (error: any) {
         const errorMessage =
-          error?.response?.data?.message || "Failed to fetch received requests";
+          error?.response?.data?.message ?? "Failed to fetch received requests";
         set({
           error: errorMessage,
           isLoading: { ...get().isLoading, receivedRequests: false },
@@ -126,7 +120,6 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
       }
     },
 
-    // Fetch sent friend requests
     fetchSentRequests: async () => {
       try {
         set((state) => ({
@@ -144,7 +137,7 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
         return sentRequests;
       } catch (error: any) {
         const errorMessage =
-          error?.response?.data?.message || "Failed to fetch sent requests";
+          error?.response?.data?.message ?? "Failed to fetch sent requests";
         set({
           error: errorMessage,
           isLoading: { ...get().isLoading, sentRequests: false },
@@ -153,7 +146,6 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
       }
     },
 
-    // Send a friend request
     sendFriendRequest: async (username: string) => {
       try {
         set({ error: null });
@@ -165,13 +157,12 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
         return { message: response.data.message };
       } catch (error: any) {
         const errorMessage =
-          error?.response?.data?.message || "Failed to send friend request";
+          error?.response?.data?.message ?? "Failed to send friend request";
         set({ error: errorMessage });
         return { message: "", error: errorMessage };
       }
     },
 
-    // Accept a friend request
     acceptFriendRequest: async (requestId: string) => {
       try {
         set({ error: null });
@@ -188,13 +179,12 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
         return { message: response.data.message };
       } catch (error: any) {
         const errorMessage =
-          error?.response?.data?.message || "Failed to accept friend request";
+          error?.response?.data?.message ?? "Failed to accept friend request";
         set({ error: errorMessage });
         return { message: "", error: errorMessage };
       }
     },
 
-    // Decline a friend request
     declineFriendRequest: async (requestId: string) => {
       try {
         set({ error: null });
@@ -208,13 +198,12 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
         return { message: response.data.message };
       } catch (error: any) {
         const errorMessage =
-          error?.response?.data?.message || "Failed to decline friend request";
+          error?.response?.data?.message ?? "Failed to decline friend request";
         set({ error: errorMessage });
         return { message: "", error: errorMessage };
       }
     },
 
-    // Cancel a sent friend request
     cancelFriendRequest: async (requestId: string) => {
       try {
         set({ error: null });
@@ -226,13 +215,12 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
         return { message: response.data.message };
       } catch (error: any) {
         const errorMessage =
-          error?.response?.data?.message || "Failed to cancel friend request";
+          error?.response?.data?.message ?? "Failed to cancel friend request";
         set({ error: errorMessage });
         return { message: "", error: errorMessage };
       }
     },
 
-    // Remove a friend
     removeFriend: async (friendId: string) => {
       try {
         set({ error: null });
@@ -244,7 +232,7 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
         return { message: response.data.message };
       } catch (error: any) {
         const errorMessage =
-          error?.response?.data?.message || "Failed to remove friend";
+          error?.response?.data?.message ?? "Failed to remove friend";
         set({ error: errorMessage });
         return { message: "", error: errorMessage };
       }
@@ -252,11 +240,8 @@ export const useFriendsStore = create<FriendsState>()((set, get) => {
   };
 });
 
-// Initialize fetch on store creation for immediate data availability
-// This is optional and can be removed if you prefer lazy loading
 const initializeStore = async () => {
   try {
-    // Don't await these to allow parallel loading
     useFriendsStore.getState().fetchFriends();
     useFriendsStore.getState().fetchReceivedRequests();
   } catch (error) {
@@ -264,5 +249,4 @@ const initializeStore = async () => {
   }
 };
 
-// Comment this out if you prefer lazy loading
 initializeStore();

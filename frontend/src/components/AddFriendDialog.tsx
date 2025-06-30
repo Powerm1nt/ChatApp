@@ -12,7 +12,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useAuthStore } from "@/stores/authStore";
 import { useFriendsStore } from "@/stores/friendsStore";
 import { toast } from "sonner";
 
@@ -32,7 +31,6 @@ const AddFriendDialog = forwardRef<AddFriendDialogRef, AddFriendDialogProps>(
     const [username, setUsername] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const { sendFriendRequest, resetErrors } = useFriendsStore();
-    const { user } = useAuthStore();
 
     useImperativeHandle(ref, () => ({
       open: () => setIsOpen(true),
@@ -63,6 +61,7 @@ const AddFriendDialog = forwardRef<AddFriendDialogRef, AddFriendDialogProps>(
         }
       } catch (err: any) {
         toast.error("Failed to send friend request");
+        console.error(err);
       } finally {
         setIsLoading(false);
       }
