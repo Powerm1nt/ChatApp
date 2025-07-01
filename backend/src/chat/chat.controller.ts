@@ -513,4 +513,43 @@ export class ChatController {
     const code = await this.invitationService.createGuildInvitation(guildId, inviterId, body.inviteeId);
     return { code };
   }
+
+  @Post("chats/:userId/messages")
+  @UseGuards(AuthGuard("jwt"))
+  @HttpCode(HttpStatus.CREATED)
+  async sendDirectMessage(
+    @Param("userId") userId: string,
+    @Body(ValidationPipe) sendMessageDto: SendMessageDto,
+    @Request() req: any
+  ) {
+    const senderId = req.user.id;
+    const message = await this.chatService.saveDirectMessage(
+      sendMessageDto.message.trim(),
+      senderId,
+      userId
+    );
+    return { success: true, message };
+  }
+
+  @Get("chats/:userId/messages")
+  @UseGuards(AuthGuard("jwt"))
+  @HttpCode(HttpStatus.OK)
+  async getDirectMessages(
+    @Param("userId") userId: string,
+    @Request() req: any
+  ) {
+    const currentUserId = req.user.id;
+    const messages = await this.chatService.getDirectMessages(currentUserId, userId);
+    // Map messages to include 'author' field for frontend compatibility
+    const mappedMessages = messages.map((msg) => ({
+      id: msg.id,
+      content: msg.content,
+      author: {
+        id: msg.sender.id,
+        username: msg.sender.username,
+      },
+      timestamp: msg.timestamp,
+    }));
+    return { messages: mappedMessages };
+  }
 }

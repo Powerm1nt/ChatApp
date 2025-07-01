@@ -12,8 +12,10 @@ import {
   UserGuild,
   Message,
   UserGuildRole,
+  DirectMessage,
 } from "../entities";
 import { v4 as uuidv4 } from 'uuid';
+import { FriendsService } from "../friends/friends.service";
 
 export interface SocketUser {
   id: string;
@@ -39,7 +41,10 @@ export class ChatService {
     @InjectRepository(UserGuild)
     private readonly userGuildRepository: EntityRepository<UserGuild>,
     @InjectRepository(Message)
-    private readonly messageRepository: EntityRepository<Message>
+    private readonly messageRepository: EntityRepository<Message>,
+    @InjectRepository(DirectMessage)
+    private readonly directMessageRepository: EntityRepository<DirectMessage>,
+    private readonly friendsService: FriendsService,
   ) {}
 
   // Check if user has access to guild
@@ -769,5 +774,37 @@ export class ChatService {
 
     // Now delete the channel
     await this.channelRepository.removeAndFlush(channel);
+  }
+
+  async saveDirectMessage(content: string, senderId: string, receiverId: string): Promise<DirectMessage> {
+    // Check if users are friends
+    const sender = await this.userRepository.findOneOrFail({ id: senderId });
+    if (!sender.friends.includes(receiverId)) {
+      throw new ForbiddenException("You can only message your friends.");
+    }
+    const receiver = await this.userRepository.findOneOrFail({ id: receiverId });
+    // Create and save the direct message
+    const directMessage = new DirectMessage();
+    directMessage.sender = sender;
+    directMessage.receiver = receiver;
+    directMessage.content = content;
+    await this.directMessageRepository.persistAndFlush(directMessage);
+    return directMessage;
+  }
+
+  async getDirectMessages(currentUserId: string, userId: string): Promise<DirectMessage[]> {
+    // Fetch all direct messages where (sender=currentUserId AND receiver=userId) OR (sender=userId AND receiver=currentUserId)
+    return this.directMessageRepository.find(
+      {
+        $or: [
+          { sender: currentUserId, receiver: userId },
+          { sender: userId, receiver: currentUserId },
+        ],
+      },
+      {
+        orderBy: { timestamp: "ASC" },
+        populate: ["sender", "receiver"],
+      }
+    );
   }
 }

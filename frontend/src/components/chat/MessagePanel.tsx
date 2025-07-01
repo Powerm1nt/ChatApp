@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore } from "@/stores/authStore";
 import { useSocketStore } from "@/stores/socketStore";
 import { useGuildStore } from "@/stores/guildStore";
+import { useFriendsStore } from "@/stores/friendsStore";
 
 interface MessagePanelProps {
   chatType: "guild" | "direct" | "group" | "unknown";
@@ -33,7 +34,7 @@ export default function MessagePanel({
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthStore();
-  const { socket, isConnected, sendMessage } = useSocketStore();
+  const { socket, isConnected, sendMessage, messages: socketMessages } = useSocketStore();
   const { getChannelById } = useGuildStore();
 
   const currentChannel = channelId ? getChannelById(channelId) : null;
@@ -78,6 +79,11 @@ export default function MessagePanel({
     setMessages([]);
     setIsTyping(false);
   }, [chatId, channelId, chatType]);
+
+  // Listen to socketStore's messages for real-time updates
+  useEffect(() => {
+    setMessages(socketMessages);
+  }, [socketMessages]);
 
   // Socket event handlers and message restoration
   useEffect(() => {
@@ -186,6 +192,11 @@ export default function MessagePanel({
 
       await sendMessage(newMessage.trim(), guildId, roomId);
       setNewMessage("");
+      // Store sent direct message in friendsStore
+      if (chatType === "direct") {
+        useFriendsStore.getState().fetchFriends(); // Optionally refresh friends
+        // Optionally: add a method to store the message in friendsStore if needed
+      }
     } catch (error) {
       console.error("Failed to send message:", error);
     }
