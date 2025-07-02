@@ -36,6 +36,7 @@ export class ChatGateway
 {
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger("ChatGateway");
+  private userSockets: Map<string, Set<string>> = new Map(); // userId -> Set<socketId>
 
   constructor(private readonly chatService: ChatService) {}
 
@@ -49,15 +50,42 @@ export class ChatGateway
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
+    // Remove socket from userSockets
+    for (const [userId, sockets] of this.userSockets.entries()) {
+      if (sockets.has(client.id)) {
+        sockets.delete(client.id);
+        if (sockets.size === 0) this.userSockets.delete(userId);
+        break;
+      }
+    }
     this.chatService.removeSocketUser(client.id);
+  }
+
+  // Helper: Register socket for a user
+  registerUserSocket(userId: string, socketId: string) {
+    if (!this.userSockets.has(userId)) this.userSockets.set(userId, new Set());
+    this.userSockets.get(userId)!.add(socketId);
+  }
+
+  // Helper: Emit to all sockets for a user
+  emitToUser(userId: string, event: string, payload: any) {
+    const sockets = this.userSockets.get(userId);
+    if (sockets) {
+      for (const socketId of sockets) {
+        this.server.to(socketId).emit(event, payload);
+      }
+    }
   }
 
   @SubscribeMessage("join-room")
   handleJoinRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { username: string; room: string; guildId?: string }
+    @MessageBody() data: { username: string; room: string; guildId?: string; userId?: string }
   ) {
-    const { username, room, guildId } = data;
+    const { username, room, guildId, userId } = data;
+    console.log(`[Gateway] join-room received: username=${username}, userId=${userId}, room=${room}, guildId=${guildId}`);
+    // Register socket for user if userId is provided
+    if (userId) this.registerUserSocket(userId, client.id);
 
     // Leave previous room if any
     const rooms = Array.from(client.rooms);
@@ -86,6 +114,7 @@ export class ChatGateway
 
     // Send room users list
     const roomUsers = this.chatService.getRoomUsers(room);
+    console.log(`[Gateway] Emitting 'room-users' for room=${room}:`, roomUsers.map(u => ({id: u.id, username: u.username, status: u.status})));
     this.server.to(room).emit("room-users", roomUsers);
 
     this.logger.log(

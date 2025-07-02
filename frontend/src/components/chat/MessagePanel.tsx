@@ -22,6 +22,7 @@ interface Message {
     username: string;
   };
   timestamp: Date;
+  room?: string;
 }
 
 export default function MessagePanel({
@@ -80,122 +81,103 @@ export default function MessagePanel({
     setIsTyping(false);
   }, [chatId, channelId, chatType]);
 
-  // Listen to socketStore's messages for real-time updates
-  useEffect(() => {
-    setMessages(socketMessages);
-  }, [socketMessages]);
-
   // Socket event handlers and message restoration
   useEffect(() => {
-    if (!socket || !user) return;
-    
-    // Wait for socket to be connected before proceeding
-    if (!isConnected) {
-      console.log("⏳ Waiting for socket connection before setting up message handlers");
-      return;
-    }
-
+    if (!socket || !user || !isConnected) return;
     const handleNewMessage = (message: Message) => {
-      setMessages((prev) => [...prev, message]);
-    };
-
-    const handleRoomMessages = (roomMessages: Message[]) => {
-      setMessages(roomMessages);
-    };
-
-    const handleUserTyping = (data: { userId: string; username: string }) => {
-      if (data.userId !== user?.id) {
-        setIsTyping(true);
-        setTimeout(() => setIsTyping(false), 3000);
+      // Only add if message is for this chat
+      let isForThisChat = false;
+      if (chatType === "guild" && message.room === channelId) {
+        isForThisChat = true;
+      } else if (chatType === "direct" && (message.author.id === chatId || message.author.id === user.id)) {
+        isForThisChat = true;
+      } else if (chatType === "group" && message.room === chatId) {
+        isForThisChat = true;
+      }
+      if (isForThisChat) {
+        setMessages((prev) => {
+          // Prevent duplicates by message id
+          if (prev.some((m) => m.id === message.id)) return prev;
+          return [...prev, message];
+        });
       }
     };
-
     socket.on("new-message", handleNewMessage);
-    socket.on("room-messages", handleRoomMessages);
-    socket.on("user-typing", handleUserTyping);
+    return () => {
+      socket.off("new-message", handleNewMessage);
+    };
+  }, [socket, isConnected, chatId, channelId, chatType, user]);
 
-    // Join the appropriate room and restore messages
-    const roomId = chatType === "guild" ? channelId : chatId;
-    const guildId = chatType === "guild" ? chatId : undefined;
-
-    // Only proceed if we have a valid roomId
-    if (!roomId) {
-      console.warn("No roomId available for joining room");
-      return;
-    }
-
-    console.log("🏠 Joining room:", { roomId, guildId, username: user.username });
-    
-    // Join room via socket for real-time events
-    socket.emit("join-room", {
-      username: user.username,
-      room: roomId,
-      guildId,
-    });
-
-    // Restore messages using the socketStore's fetchMessages function
+  useEffect(() => {
+    // Restore messages from backend on mount or when chat changes
     const restoreMessages = async () => {
+      if (!user) return;
       try {
-        const API_BASE_URL =
-          import.meta.env.VITE_API_URL || "http://localhost:3001";
+        const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
         const { token } = useAuthStore.getState();
-
-        let url: string;
-        if (chatType === "guild" && guildId && channelId) {
-          url = `${API_BASE_URL}/api/guilds/${guildId}/channels/${channelId}/messages`;
-        } else {
-          // For direct messages or other chat types
-          url = `${API_BASE_URL}/api/chats/${roomId}/messages`;
+        let url: string | null = null;
+        if (chatType === "guild" && chatId && channelId) {
+          url = `${API_BASE_URL}/api/guilds/${chatId}/channels/${channelId}/messages`;
+        } else if (chatType === "direct" && chatId) {
+          url = `${API_BASE_URL}/api/chats/${chatId}/messages`;
+        } else if (chatType === "group" && chatId) {
+          url = `${API_BASE_URL}/api/groups/${chatId}/messages`;
         }
-
+        if (!url) return;
         const response = await fetch(url, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
-
         if (response.ok) {
           const data = await response.json();
           if (data && data.messages) {
-            console.log("📨 Restored", data.messages.length, "messages for room:", roomId);
             setMessages(data.messages);
+          } else {
+            setMessages([]);
           }
         } else {
-          console.error("Failed to fetch messages:", response.statusText);
-          // Set empty messages on error to avoid showing stale data
           setMessages([]);
         }
       } catch (error) {
-        console.error("Failed to restore messages:", error);
-        // Set empty messages on error to avoid showing stale data
         setMessages([]);
       }
     };
-
     restoreMessages();
+  }, [chatType, chatId, channelId, user]);
 
-    return () => {
-      socket.off("new-message", handleNewMessage);
-      socket.off("room-messages", handleRoomMessages);
-      socket.off("user-typing", handleUserTyping);
-    };
-  }, [socket, isConnected, chatId, channelId, chatType, user]);
+  useEffect(() => {
+    if (!socket || !user || !isConnected) return;
+    let room: string | undefined;
+    if (chatType === "guild" && channelId) {
+      room = channelId;
+    } else if (chatType === "direct" && chatId) {
+      room = chatId;
+    } else if (chatType === "group" && chatId) {
+      room = chatId;
+    }
+    if (room) {
+      socket.emit("join-room", {
+        username: user.username,
+        room,
+        userId: user.id,
+      });
+      // Immediately request the user list for this room
+      socket.emit("get-room-users", { roomId: room, chatType });
+    }
+  }, [socket, isConnected, user, chatType, chatId, channelId]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !isConnected || !user) return;
-
     try {
       const roomId = chatType === "guild" ? channelId : chatId;
       const guildId = chatType === "guild" ? chatId : undefined;
-
       await sendMessage(newMessage.trim(), guildId, roomId);
       setNewMessage("");
-      // Store sent direct message in friendsStore
       if (chatType === "direct") {
-        useFriendsStore.getState().fetchFriends(); // Optionally refresh friends
-        // Optionally: add a method to store the message in friendsStore if needed
+        useFriendsStore.getState().fetchFriends();
       }
     } catch (error) {
       console.error("Failed to send message:", error);

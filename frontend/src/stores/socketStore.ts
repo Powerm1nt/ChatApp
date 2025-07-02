@@ -195,7 +195,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
       isConnected
     });
 
-    // Prevent duplicate socket initialization
     if (!user) {
       console.log("Socket initialization skipped: No user authenticated");
       return;
@@ -206,13 +205,11 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
       return;
     }
 
-    // If socket already exists and is connected, don't create a new one
     if (socket && isConnected) {
       console.log("Socket already exists and is connected, skipping initialization");
       return;
     }
 
-    // If socket exists but is not connected, disconnect it first
     if (socket && !isConnected) {
       console.log("Disconnecting existing socket before creating new one");
       socket.disconnect();
@@ -234,19 +231,20 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
         autoConnect: true,
       });
 
-      // Set socket immediately so components can access it
       set({ socket: newSocket });
 
       newSocket.on("connect", () => {
         console.log("✅ Socket connected to server successfully");
         set({ isConnected: true, isInitializing: false });
+        if (user?.id) {
+          newSocket.emit("join-room", { username: user.username, room: "user-notify", userId: user.id });
+        }
       });
 
       newSocket.on("disconnect", (reason) => {
         console.log("❌ Socket disconnected from server:", reason);
         set({ isConnected: false });
         
-        // Auto-reconnect on unexpected disconnections (not manual disconnects)
         if (reason !== "io client disconnect" && reason !== "io server disconnect") {
           console.log("🔄 Attempting to reconnect...");
           setTimeout(() => {
@@ -262,7 +260,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
         console.error("❌ Socket connection error:", error);
         set({ isConnected: false, isInitializing: false });
         
-        // Retry connection after a delay
         setTimeout(() => {
           const { user: currentUser } = useAuthStore.getState();
           if (currentUser && !get().isConnected && !get().isInitializing) {
@@ -273,8 +270,14 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
       });
 
       newSocket.on("new-message", (message: ChatMessage) => {
-        console.log("📨 Received new message:", message);
-        get().addMessage(message);
+        const { currentRoom, currentGuild } = get();
+        if (
+          (message.room && (message.room === currentRoom || message.room === currentGuild)) ||
+          (!message.room &&
+            ((message.author.id === user?.id) || (message.author.id !== user?.id)))
+        ) {
+          get().addMessage(message);
+        }
       });
 
       newSocket.on("room-users", (users: User[]) => {
@@ -305,7 +308,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
         }
       );
 
-      // Channel management events
       newSocket.on(
         "channel-created",
         (data: { guildId: string; channel: Channel; timestamp: Date }) => {
@@ -316,7 +318,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
             data.guildId
           );
 
-          // Import guild store to refresh channels
           import("./guildStore").then(({ useGuildStore }) => {
             const guildStore = useGuildStore.getState();
             guildStore.fetchChannels(data.guildId);
@@ -334,7 +335,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
             data.guildId
           );
 
-          // Directly update the channel in the store to trigger immediate rerenders
           import("./guildStore").then(({ useGuildStore }) => {
             const guildStore = useGuildStore.getState();
             guildStore.updateChannelInStore(data.channel);
@@ -359,13 +359,11 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
             data.guildId
           );
 
-          // If we're currently in the deleted channel, clear the current room
           if (currentRoom === data.channelId) {
             setCurrentRoom(null);
             setMessages([]);
           }
 
-          // Import guild store to refresh channels
           import("./guildStore").then(({ useGuildStore }) => {
             const guildStore = useGuildStore.getState();
             guildStore.fetchChannels(data.guildId);
@@ -408,24 +406,20 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
   joinRoom: (username: string, room: string, guildId?: string) => {
     const { socket, fetchMessages } = get();
 
-    // Set current room and guild
     set({
       currentRoom: room,
       currentGuild: guildId || null,
       messages: [],
-    }); // Clear messages when switching rooms
+    });
 
-    // Emit join-room to socket for real-time features
     if (socket) {
       socket.emit("join-room", { username, room, guildId });
 
-      // Also join guild room for guild-wide events
       if (guildId) {
         socket.emit("join-guild", { guildId });
       }
     }
 
-    // Fetch room messages via API
     fetchMessages(room, guildId);
   },
   fetchMessages: async (roomId: string, guildId?: string) => {
@@ -438,7 +432,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
       if (guildId) {
         url = `${API_BASE_URL}/api/guilds/${guildId}/channels/${roomId}/messages`;
       } else {
-        // Fallback to legacy endpoint
         url = `${API_BASE_URL}/api/chats/${roomId}/messages`;
       }
 
@@ -453,7 +446,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
     } catch (error: any) {
       console.error("Failed to fetch messages:", error);
 
-      // Handle 404 errors for new channels by setting empty messages
       if (error.response?.status === 404) {
         console.log(
           "Channel not found, setting empty messages for new channel"
@@ -478,12 +470,10 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
     } catch (error: any) {
       console.error("Failed to fetch guilds:", error);
 
-      // Handle authentication errors
       if (error.response?.status === 401) {
         console.warn(
           "Authentication failed while fetching guilds. Token may be expired."
         );
-        // Clear auth state and redirect to login
         useAuthStore.getState().signOut();
         if (typeof window !== "undefined") {
           window.location.href = "/login";
@@ -503,7 +493,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
       if (guildId) {
         url = `${API_BASE_URL}/api/guilds/${guildId}/channels`;
       } else {
-        // Fallback to legacy endpoint
         url = `${API_BASE_URL}/api/chats`;
       }
 
@@ -517,35 +506,29 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
         "Fetch channels response: received",
         response.data?.channels?.length || response.data?.rooms?.length || 0,
         "channels"
-      ); // Debug log
+      );
 
       let channels: Channel[] = [];
       if (guildId && response.data && response.data.channels) {
         channels = response.data.channels;
       } else if (response.data && response.data.rooms) {
-        // Legacy format
         channels = response.data.rooms;
       } else if (response.data && Array.isArray(response.data)) {
-        // Direct array response
         channels = response.data;
       }
 
-      // Set channels in store
       set({ channels });
 
       return { success: true, channels };
     } catch (error: any) {
       console.error("Failed to fetch channels:", error);
 
-      // Handle specific error cases
       if (error.response?.status === 403) {
         console.warn(
           "Access denied to guild. User may not be a member of this guild."
         );
-        // Clear channels for this guild since user doesn't have access
         set({ channels: [] });
 
-        // Optionally redirect to home or show a user-friendly message
         if (typeof window !== "undefined") {
           const currentPath = window.location.pathname;
           if (currentPath.includes("/guild/")) {
@@ -556,7 +539,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
         return { success: false, error: "Access denied to guild" };
       } else if (error.response?.status === 401) {
         console.warn("Authentication failed. Token may be expired.");
-        // Clear auth state and redirect to login
         useAuthStore.getState().signOut();
         if (typeof window !== "undefined") {
           window.location.href = "/login";
@@ -594,7 +576,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
       );
 
       if (response.data) {
-        // Refresh guilds list after creating a new one
         await get().fetchGuilds();
         return response.data;
       }
@@ -630,7 +611,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
       );
 
       if (response.data) {
-        // Refresh channels list after creating a new one
         await get().fetchChannels(guildId);
         return response.data;
       }
@@ -669,7 +649,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
       );
 
       if (response.data) {
-        // Refresh channels list after updating
         await get().fetchChannels(guildId);
         return response.data;
       }
@@ -695,7 +674,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
         }
       );
 
-      // Refresh channels list after deleting
       await get().fetchChannels(guildId);
       return true;
     } catch (error) {
@@ -727,7 +705,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
       if (targetGuildId) {
         url = `${API_BASE_URL}/api/guilds/${targetGuildId}/channels/${targetChannelId}/messages`;
       } else {
-        // Fallback to legacy endpoint
         url = `${API_BASE_URL}/api/chats/${targetChannelId}/messages`;
       }
 
@@ -745,7 +722,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
         }
       );
 
-      // Message will be received via WebSocket broadcast, no need to add it manually
     } catch (error) {
       console.error("Failed to send message:", error);
     }
@@ -765,7 +741,6 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
     }
   },
 
-  // Service status and heartbeat methods
   fetchServiceStatus: async () => {
     try {
       const API_BASE_URL =
@@ -839,15 +814,12 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
   startHeartbeat: () => {
     const { fetchServiceStatus } = get();
 
-    // Initial fetch
     fetchServiceStatus();
 
-    // Set up interval for heartbeat (every 30 seconds)
     const heartbeatInterval = setInterval(() => {
       fetchServiceStatus();
     }, 30000);
 
-    // Store interval ID for cleanup
     (window as any).heartbeatInterval = heartbeatInterval;
   },
 
@@ -859,16 +831,12 @@ export const useSocketStore = create<SocketState>()((set, get) => ({
   },
 }));
 
-// Subscribe to auth store changes to manage socket connection
 useAuthStore.subscribe((state, prevState) => {
   const { initializeSocket, disconnectSocket, startHeartbeat, stopHeartbeat } =
     useSocketStore.getState();
   
-  // Only initialize socket if user state actually changed from null to a user
-  // This prevents unnecessary re-initialization during app startup
   if (state.user && !prevState?.user) {
     console.log("🔌 User authenticated, initializing socket connection");
-    // Add a small delay to ensure auth is fully established
     setTimeout(() => {
       initializeSocket();
       startHeartbeat();

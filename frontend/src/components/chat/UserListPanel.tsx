@@ -3,6 +3,8 @@ import { Users, Crown, Shield, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSocketStore } from "@/stores/socketStore";
 import { UserGroup } from "./UserGroup";
+import { useAuthStore } from "@/stores/authStore";
+import type { UserStatus } from "../UserStatusIndicator";
 
 interface UserListPanelProps {
   chatType: "guild" | "direct" | "group" | "unknown";
@@ -13,7 +15,7 @@ interface UserListPanelProps {
 interface ChatUser {
   id: string;
   username: string;
-  status: "online" | "away" | "offline";
+  status: UserStatus;
   role?: "owner" | "admin" | "member";
   room?: string;
   guildId?: string;
@@ -27,6 +29,7 @@ export default function UserListPanel({
 }: Readonly<UserListPanelProps>) {
   const [users, setUsers] = useState<ChatUser[]>([]);
   const { socket, isConnected } = useSocketStore();
+  const { user } = useAuthStore();
 
   const getPanelTitle = () => {
     switch (chatType) {
@@ -65,58 +68,62 @@ export default function UserListPanel({
     }
   };
 
+  // Fetch all members with read access from backend
+  useEffect(() => {
+    let url: string | null = null;
+    if (chatType === "guild" && chatId) {
+      url = `/api/guilds/${chatId}/members`;
+    } else if (chatType === "group" && chatId) {
+      url = `/api/groups/${chatId}/members`;
+    } else if (chatType === "direct" && chatId && user) {
+      url = `/api/users/dm-members?userA=${user.id}&userB=${chatId}`;
+    }
+    if (!url) return;
+    const fetchMembers = async () => {
+      try {
+        const { token } = useAuthStore.getState();
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setUsers(data.members || []);
+        } else {
+          setUsers([]);
+        }
+      } catch (e) {
+        setUsers([]);
+      }
+    };
+    fetchMembers();
+  }, [chatType, chatId, user]);
+
+  // Update online status from socket 'room-users' event
   useEffect(() => {
     if (!socket || !isConnected) return;
-
     const handleRoomUsers = (roomUsers: ChatUser[]) => {
-      setUsers(roomUsers);
-    };
-
-    const handleUserJoined = (user: ChatUser) => {
       setUsers((prev) => {
-        const exists = prev.find((u) => u.id === user.id);
-        if (exists) return prev;
-        return [...prev, user];
+        return prev.map((member) => {
+          const onlineUser = roomUsers.find((u) => u.id === member.id);
+          if (onlineUser) {
+            return { ...member, status: onlineUser.status };
+          }
+          return member;
+        });
       });
     };
-
-    const handleUserLeft = (userId: string) => {
-      setUsers((prev) => prev.filter((u) => u.id !== userId));
-    };
-
-    const handleUserStatusUpdate = (data: {
-      userId: string;
-      status: string;
-    }) => {
-      setUsers((prev) =>
-        prev.map((user) =>
-          user.id === data.userId
-            ? { ...user, status: data.status as "online" | "away" | "offline" }
-            : user
-        )
-      );
-    };
-
     socket.on("room-users", handleRoomUsers);
-    socket.on("user-joined", handleUserJoined);
-    socket.on("user-left", handleUserLeft);
-
-    socket.on("user-status-update", handleUserStatusUpdate);
     const roomId = chatType === "guild" ? channelId : chatId;
     socket.emit("get-room-users", { roomId, chatType });
-
     return () => {
       socket.off("room-users", handleRoomUsers);
-      socket.off("user-joined", handleUserJoined);
-      socket.off("user-left", handleUserLeft);
-      socket.off("user-status-update", handleUserStatusUpdate);
     };
   }, [socket, isConnected, chatId, channelId, chatType]);
 
-  const onlineUsers = users.filter((user) => user.status === "online");
-  const awayUsers = users.filter((user) => user.status === "away");
-  const offlineUsers = users.filter((user) => user.status === "offline");
-
+  // Directly render all users, no filters or finds
   return (
     <div className="h-full bg-card border-l flex flex-col">
       <div className="border-b px-4 py-3 sticky top-0 z-10 bg-card">
@@ -132,41 +139,14 @@ export default function UserListPanel({
       <div className="flex-1 overflow-y-auto p-4">
         {users.length === 0 ? (
           <div className="flex items-center justify-center h-32">
-            <p className="text-muted-foreground text-sm">No users online</p>
+            <p className="text-muted-foreground text-sm">No users</p>
           </div>
         ) : (
-          <>
-            {onlineUsers.length > 0 && (
-              <UserGroup
-                title="Online"
-                users={onlineUsers}
-                count={onlineUsers.length}
-                getStatusColor={getStatusColor}
-                getRoleIcon={getRoleIcon}
-                chatType={chatType}
-              />
-            )}
-            {awayUsers.length > 0 && (
-              <UserGroup
-                title="Away"
-                users={awayUsers}
-                count={awayUsers.length}
-                getStatusColor={getStatusColor}
-                getRoleIcon={getRoleIcon}
-                chatType={chatType}
-              />
-            )}
-            {offlineUsers.length > 0 && (
-              <UserGroup
-                title="Offline"
-                users={offlineUsers}
-                count={offlineUsers.length}
-                getStatusColor={getStatusColor}
-                getRoleIcon={getRoleIcon}
-                chatType={chatType}
-              />
-            )}
-          </>
+          <UserGroup
+            title="All Users"
+            users={users}
+            count={users.length}
+          />
         )}
       </div>
 

@@ -528,6 +528,19 @@ export class ChatController {
       senderId,
       userId
     );
+    // Notify both sender and receiver
+    const chatMessage: ChatMessage = {
+      id: message.id,
+      content: message.content,
+      author: {
+        id: senderId,
+        username: sendMessageDto.username,
+      },
+      timestamp: message.timestamp,
+      room: undefined,
+    };
+    this.chatGateway.emitToUser(userId, "new-message", chatMessage);
+    this.chatGateway.emitToUser(senderId, "new-message", chatMessage);
     return { success: true, message };
   }
 

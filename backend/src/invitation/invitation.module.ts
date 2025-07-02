@@ -10,4 +10,4 @@ import { GuildInvitation, Guild, User, DirectMessage } from '../entities';
   providers: [InvitationService],
   exports: [InvitationService],
 })
-export class InvitationModule {} 
+export class InvitationModule {}
